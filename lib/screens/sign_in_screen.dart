@@ -45,10 +45,7 @@ class _SignInScreenState extends State<SignInScreen> {
         return;
       }
 
-      Navigator.of(context).pushNamed(
-        '/verify',
-        arguments: '$_selectedCountryCode ${_phoneController.text}',
-      );
+      Navigator.of(context).pushReplacementNamed('/home');
     }
   }
 

@@ -66,7 +66,7 @@ class _NumberVerificationScreenState extends State<NumberVerificationScreen> {
 
   void _verifyOtp() {
     if (_otpCode.length == 6) {
-      Navigator.of(context).pushReplacementNamed('/set_new_pin');
+      Navigator.of(context).pushReplacementNamed('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
