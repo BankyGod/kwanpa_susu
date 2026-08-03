@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../state/app_state.dart';
-import '../widgets/bounce_button.dart';
+
 import '../widgets/shimmer_loader.dart';
 import '../widgets/primary_button.dart';
 import 'budget_screen.dart';
@@ -1668,7 +1668,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      tileColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       leading: Container(
+
         width: 40,
         height: 40,
         decoration: const BoxDecoration(

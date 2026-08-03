@@ -46,7 +46,7 @@ class _ShimmerLoaderState extends State<ShimmerLoader>
           blendMode: BlendMode.srcATop,
           shaderCallback: (bounds) {
             final double width = bounds.width;
-            final double dx = width * _shimmerController.value * 2 - width;
+
             return LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
