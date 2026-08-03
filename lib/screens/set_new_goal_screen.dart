@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
 import 'goal_success_screen.dart';
 
 class SetNewGoalScreen extends StatefulWidget {
@@ -78,6 +79,16 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
       );
       return;
     }
+
+    final String dateStr = _targetDateController.text.isNotEmpty ? _targetDateController.text : '12/31/2026';
+
+    // Add to interactive in-memory demo state
+    AppState().addGoal(
+      title: title,
+      targetAmount: targetAmount,
+      frequency: _selectedFrequency,
+      lockDate: dateStr,
+    );
 
     // Navigate to GoalSuccessScreen matching Figma 4:1847
     Navigator.of(context).pushReplacement(

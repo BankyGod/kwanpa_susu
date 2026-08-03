@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
 import 'deposit_success_screen.dart';
 
 class DepositScreen extends StatefulWidget {
@@ -59,6 +60,9 @@ class _DepositScreenState extends State<DepositScreen> {
       );
       return;
     }
+
+    // Update interactive in-memory demo state
+    AppState().deposit(amount, _selectedMethod);
 
     // Push DepositSuccessScreen matching Figma 4:1761
     Navigator.of(context).pushReplacement(

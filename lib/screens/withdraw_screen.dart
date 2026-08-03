@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
 import 'withdrawal_success_screen.dart';
+import '../widgets/bounce_button.dart';
 
 class WithdrawScreen extends StatefulWidget {
   const WithdrawScreen({super.key});
@@ -46,6 +48,9 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       );
       return;
     }
+
+    final String dest = accountText.isNotEmpty ? accountText : 'MTN MoMo (024 *** 4587)';
+    AppState().withdraw(amount, dest);
 
     // Success dialog
     // Push WithdrawalSuccessScreen matching Figma 4:1699
@@ -257,30 +262,33 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               child: SizedBox(
                 width: double.infinity,
                 height: 54,
-                child: ElevatedButton(
+                child: BounceButton(
                   onPressed: _processWithdrawal,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.vibrantGreen,
-                    elevation: 3,
-                    shadowColor: AppColors.vibrantGreen.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Confirm Withdrawal',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.darkGreenAccent,
-                        ),
+                  child: ElevatedButton(
+                    onPressed: _processWithdrawal,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.vibrantGreen,
+                      elevation: 3,
+                      shadowColor: AppColors.vibrantGreen.withValues(alpha: 0.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward_rounded, color: AppColors.darkGreenAccent, size: 20),
-                    ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Confirm Withdrawal',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.darkGreenAccent,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward_rounded, color: AppColors.darkGreenAccent, size: 20),
+                      ],
+                    ),
                   ),
                 ),
               ),

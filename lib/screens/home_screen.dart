@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
+import '../widgets/bounce_button.dart';
+import '../widgets/shimmer_loader.dart';
+import '../widgets/primary_button.dart';
 import 'budget_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,6 +17,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    AppState().simulateLoading();
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -117,15 +125,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildHomeDashboardTab(),
-          const BudgetScreen(),
-          _buildSavingsDashboardTab(),
-          _buildAnalyticsGroupsTab(),
-          _buildUserProfileTab(),
-        ],
+      body: ListenableBuilder(
+        listenable: AppState(),
+        builder: (context, _) {
+          return IndexedStack(
+            index: _currentIndex,
+            children: [
+              _buildHomeDashboardTab(),
+              const BudgetScreen(),
+              _buildSavingsDashboardTab(),
+              _buildAnalyticsGroupsTab(),
+              _buildUserProfileTab(),
+            ],
+          );
+        },
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -235,9 +248,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'GHS 12,450.00',
-                  style: TextStyle(
+                Text(
+                  'GHS ${(AppState().totalBalance + 8250.00).toStringAsFixed(2)}',
+                  style: const TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -245,20 +258,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Active Wallet',
                           style: TextStyle(fontSize: 11, color: Color(0xFFA3B3A9)),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
-                          'GHS 4,200.00',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                          'GHS ${AppState().totalBalance.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ],
                     ),
@@ -438,38 +451,74 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
 
                 // Activity 1: Melcom Supermarket (-GHS 250.00)
-                _buildActivityRowItem(
-                  title: 'Melcom Supermarket',
-                  subtitle: 'Today, 14:30',
-                  amount: '-GHS 250.00',
-                  isCredit: false,
-                  icon: Icons.shopping_bag_outlined,
-                  iconBgColor: const Color(0xFFFFEBEE),
-                  iconColor: const Color(0xFFD32F2F),
+                Builder(
+                  builder: (context) {
+                    final loading = AppState().isLoadingTransactions;
+                    if (loading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: ShimmerCardPlaceholder(height: 60),
+                      );
+                    } else {
+                      return _buildActivityRowItem(
+                        title: 'Melcom Supermarket',
+                        subtitle: 'Today, 14:30',
+                        amount: '-GHS 250.00',
+                        isCredit: false,
+                        icon: Icons.shopping_bag_outlined,
+                        iconBgColor: const Color(0xFFFFEBEE),
+                        iconColor: const Color(0xFFD32F2F),
+                      );
+                    }
+                  },
                 ),
                 const Divider(height: 20, thickness: 1, color: Color(0xFFF5F5F5)),
 
                 // Activity 2: Salary Deposit (+GHS 4,500.00)
-                _buildActivityRowItem(
-                  title: 'Salary Deposit',
-                  subtitle: 'Yesterday',
-                  amount: '+GHS 4,500.00',
-                  isCredit: true,
-                  icon: Icons.account_balance_wallet_outlined,
-                  iconBgColor: const Color(0xFFE8F8EA),
-                  iconColor: AppColors.forestGreen,
+                Builder(
+                  builder: (context) {
+                    final loading = AppState().isLoadingTransactions;
+                    if (loading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: ShimmerCardPlaceholder(height: 60),
+                      );
+                    } else {
+                      return _buildActivityRowItem(
+                        title: 'Salary Deposit',
+                        subtitle: 'Yesterday',
+                        amount: '+GHS 4,500.00',
+                        isCredit: true,
+                        icon: Icons.account_balance_wallet_outlined,
+                        iconBgColor: const Color(0xFFE8F8EA),
+                        iconColor: AppColors.forestGreen,
+                      );
+                    }
+                  },
                 ),
                 const Divider(height: 20, thickness: 1, color: Color(0xFFF5F5F5)),
 
                 // Activity 3: ECG Prepaid (-GHS 120.00)
-                _buildActivityRowItem(
-                  title: 'ECG Prepaid',
-                  subtitle: '12 Oct',
-                  amount: '-GHS 120.00',
-                  isCredit: false,
-                  icon: Icons.electric_bolt_outlined,
-                  iconBgColor: const Color(0xFFFFF8E1),
-                  iconColor: const Color(0xFFF57F17),
+                Builder(
+                  builder: (context) {
+                    final loading = AppState().isLoadingTransactions;
+                    if (loading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: ShimmerCardPlaceholder(height: 60),
+                      );
+                    } else {
+                      return _buildActivityRowItem(
+                        title: 'ECG Prepaid',
+                        subtitle: '12 Oct',
+                        amount: '-GHS 120.00',
+                        isCredit: false,
+                        icon: Icons.electric_bolt_outlined,
+                        iconBgColor: const Color(0xFFFFF8E1),
+                        iconColor: const Color(0xFFF57F17),
+                      );
+                    }
+                  },
                 ),
               ],
             ),
@@ -620,24 +669,22 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: ElevatedButton.icon(
+            child: PrimaryButton(
               onPressed: () => Navigator.of(context).pushNamed('/create_goal'),
-              icon: const Icon(Icons.add, color: AppColors.darkGreenAccent, size: 22),
-              label: const Text(
-                'Create New Goal',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkGreenAccent,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.vibrantGreen,
-                elevation: 2,
-                shadowColor: AppColors.vibrantGreen.withValues(alpha: 0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.add, color: AppColors.darkGreenAccent, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'Create New Goal',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkGreenAccent,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1465,21 +1512,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icons.person_outline_rounded,
                 title: 'Personal Information',
                 subtitle: 'Update your details',
-                onTap: () {},
+                onTap: () => Navigator.of(context).pushNamed('/personal_info'),
               ),
               const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
               _buildGroupedProfileItem(
                 icon: Icons.account_balance_wallet_outlined,
                 title: 'Payment Methods',
                 subtitle: 'Manage MoMo & Bank cards',
-                onTap: () {},
+                onTap: () => Navigator.of(context).pushNamed('/payment_methods'),
               ),
               const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
               _buildGroupedProfileItem(
                 icon: Icons.lock_outline_rounded,
                 title: 'Security',
                 subtitle: 'Change PIN, enable Biometrics',
-                onTap: () => Navigator.of(context).pushNamed('/reset_pin'),
+                onTap: () => Navigator.of(context).pushNamed('/security'),
               ),
             ],
           ),
