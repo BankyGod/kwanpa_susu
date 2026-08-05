@@ -32,18 +32,21 @@ class GoalDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                goal.isLocked ? 'Contribute to Locked Goal' : 'Contribute',
+                goal.isStrict ? 'Contribute to Strict Goal' : 'Contribute',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.darkGreen,
                 ),
               ),
-              if (goal.isLocked) ...[
+              if (goal.isStrict) ...[
                 const SizedBox(height: 8),
-                const Text(
-                  'Funds stay locked until the unlock date. Early withdrawal is not available.',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                Text(
+                  goal.appliesEarlyPenalty
+                      ? 'Strict lock until ${goal.lockDate}. You can withdraw early, but a 15% fee goes to Kwanpa.'
+                      : 'Unlock date reached — withdraw with no penalty.',
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary),
                 ),
               ],
               const SizedBox(height: 16),
@@ -238,7 +241,7 @@ class GoalDetailScreen extends StatelessWidget {
                                     child: Row(
                                       children: [
                                         Icon(
-                                          goal.isLocked
+                                          goal.isStrict
                                               ? Icons.lock_rounded
                                               : Icons.lock_open_rounded,
                                           size: 12,
@@ -246,9 +249,7 @@ class GoalDetailScreen extends StatelessWidget {
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          goal.isLocked
-                                              ? 'Time-Locked'
-                                              : 'Unlocked',
+                                          goal.lockTypeLabel,
                                           style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
@@ -324,7 +325,7 @@ class GoalDetailScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        if (goal.isLocked) ...[
+                        if (goal.isStrict) ...[
                           const SizedBox(height: 16),
                           Container(
                             width: double.infinity,
@@ -333,11 +334,31 @@ class GoalDetailScreen extends StatelessWidget {
                               color: const Color(0xFFFFF8E1),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Text(
-                              'This goal is locked until the unlock date. You can keep contributing, but funds cannot be withdrawn early.',
-                              style: TextStyle(
+                            child: Text(
+                              goal.appliesEarlyPenalty
+                                  ? 'Strict savings: you can withdraw anytime, but before ${goal.lockDate} a 15% early-withdrawal fee is paid to Kwanpa.'
+                                  : 'Unlock date reached. Withdraw from this goal with no penalty.',
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFFF57F17),
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F8EA),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Text(
+                              'Flexible savings: withdraw anytime with no penalty.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF006E0A),
                                 height: 1.35,
                               ),
                             ),
@@ -349,14 +370,213 @@ class GoalDetailScreen extends StatelessWidget {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                  child: SizedBox(
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: goal.isAchieved
+                              ? () => Navigator.of(context)
+                                  .pushNamed('/goal_achieved')
+                              : () => _contribute(context, goal),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.vibrantGreen,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            goal.isAchieved
+                                ? 'View Achievement'
+                                : 'Contribute Now',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.darkGreenAccent,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (goal.currentSaved > 0) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: OutlinedButton(
+                            onPressed: () => _withdraw(context, goal),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                  color: AppColors.darkGreen, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              goal.appliesEarlyPenalty
+                                  ? 'Withdraw early (15% fee)'
+                                  : 'Withdraw to wallet',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkGreen,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _withdraw(BuildContext context, SusuGoal goal) {
+    final controller = TextEditingController(
+      text: goal.currentSaved.toStringAsFixed(2),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final amount =
+                double.tryParse(controller.text.trim()) ?? 0;
+            final penalty = goal.earlyPenaltyFor(amount);
+            final net = amount - penalty;
+
+            return Padding(
+              padding: EdgeInsets.only(
+                top: 24,
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    goal.appliesEarlyPenalty
+                        ? 'Early withdrawal'
+                        : 'Withdraw to wallet',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkGreen,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    goal.appliesEarlyPenalty
+                        ? 'Strict goal — unlock date ${goal.lockDate} not reached. A 15% platform fee applies.'
+                        : goal.isStrict
+                            ? 'Unlock date reached. No fee on this withdrawal.'
+                            : 'Flexible goal — no withdrawal fee.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Available in goal: GHS ${goal.currentSaved.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setModalState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Amount (GHS)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                  if (amount > 0) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: penalty > 0
+                            ? const Color(0xFFFFF3E0)
+                            : const Color(0xFFE8F8EA),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (penalty > 0) ...[
+                            Text(
+                              'Fee (15%): GHS ${penalty.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFE65100),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          Text(
+                            'You receive: GHS ${net.clamp(0, double.infinity).toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: penalty > 0
+                                  ? const Color(0xFFE65100)
+                                  : const Color(0xFF006E0A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  SizedBox(
                     width: double.infinity,
-                    height: 54,
+                    height: 52,
                     child: ElevatedButton(
-                      onPressed: goal.isAchieved
-                          ? () => Navigator.of(context)
-                              .pushNamed('/goal_achieved')
-                          : () => _contribute(context, goal),
+                      onPressed: () {
+                        final parsed =
+                            double.tryParse(controller.text.trim());
+                        if (parsed == null) return;
+                        final ok =
+                            AppState().withdrawFromGoal(goal.id, parsed);
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ok
+                                  ? (goal.appliesEarlyPenalty
+                                      ? 'Withdrawn with 15% fee. Check your wallet.'
+                                      : 'Moved to wallet successfully.')
+                                  : (AppState().lastError ??
+                                      'Could not withdraw'),
+                            ),
+                            backgroundColor:
+                                ok ? null : Colors.redAccent,
+                          ),
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.vibrantGreen,
                         elevation: 0,
@@ -364,9 +584,9 @@ class GoalDetailScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: Text(
-                        goal.isAchieved ? 'View Achievement' : 'Contribute Now',
-                        style: const TextStyle(
+                      child: const Text(
+                        'Confirm Withdraw',
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppColors.darkGreenAccent,
@@ -374,10 +594,10 @@ class GoalDetailScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

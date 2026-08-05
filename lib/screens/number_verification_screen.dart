@@ -68,7 +68,7 @@ class _NumberVerificationScreenState extends State<NumberVerificationScreen> {
   void _verifyOtp() {
     if (_otpCode.length == 6) {
       AppState().signIn();
-      Navigator.of(context).pushReplacementNamed('/home');
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

@@ -243,7 +243,8 @@ class _DepositSuccessScreenState extends State<DepositSuccessScreen>
                         height: 54,
                         child: ElevatedButton(
                           onPressed: () {
-                            Navigator.of(context).popUntil((route) => route.isFirst);
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                                '/home', (route) => false);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.vibrantGreen,

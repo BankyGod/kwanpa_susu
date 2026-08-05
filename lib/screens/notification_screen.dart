@@ -75,7 +75,10 @@ class NotificationScreen extends StatelessWidget {
                           onTap: () {
                             state.markNotificationRead(n.id);
                             if (n.route != null) {
-                              Navigator.of(context).pushNamed(n.route!);
+                              Navigator.of(context).pushNamed(
+                                n.route!,
+                                arguments: n.routeArgs,
+                              );
                             }
                           },
                           child: Container(

@@ -245,7 +245,8 @@ class _WithdrawalSuccessScreenState extends State<WithdrawalSuccessScreen>
                         height: 54,
                         child: ElevatedButton(
                           onPressed: () {
-                            Navigator.of(context).popUntil((route) => route.isFirst);
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                                '/home', (route) => false);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.vibrantGreen,

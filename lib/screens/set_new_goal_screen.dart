@@ -17,6 +17,7 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
 
   bool _autoContributions = true;
   String _selectedFrequency = 'Daily';
+  String? _lockType; // flexible | strict — required
 
   final List<String> _frequencies = ['Daily', 'Weekly', 'Monthly'];
 
@@ -80,9 +81,26 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
       return;
     }
 
-    final String dateStr = _targetDateController.text.isNotEmpty ? _targetDateController.text : '12/31/2026';
+    if (_lockType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Choose Flexible or Strict savings lock')),
+      );
+      return;
+    }
 
-    // Add to interactive in-memory demo state
+    if (_lockType == 'strict' && _targetDateController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Strict goals need a target unlock date')),
+      );
+      return;
+    }
+
+    final String dateStr = _targetDateController.text.isNotEmpty
+        ? _targetDateController.text
+        : (_lockType == 'flexible' ? 'Flexible' : '12/31/2026');
+
     AppState().addGoal(
       title: title,
       targetAmount: targetAmount,
@@ -90,16 +108,15 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
       lockDate: dateStr,
       isAutoSave: _autoContributions,
       autoSaveAmount: 25.00,
-      isLocked: true,
+      lockType: _lockType!,
     );
 
-    // Navigate to GoalSuccessScreen matching Figma 4:1847
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => GoalSuccessScreen(
           goalTitle: title,
           targetAmount: targetAmount,
-          targetDate: _targetDateController.text.isNotEmpty ? _targetDateController.text : '12/31/2026',
+          targetDate: dateStr,
           frequency: _selectedFrequency,
           contributionAmount: 25.00,
         ),
@@ -251,9 +268,11 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
                     const SizedBox(height: 18),
 
                     // Field 3: Target Date (Time-lock)
-                    const Text(
-                      'Target Date (Time-lock)',
-                      style: TextStyle(
+                    Text(
+                      _lockType == 'strict'
+                          ? 'Unlock Date (required for Strict)'
+                          : 'Target Date (optional)',
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: AppColors.darkGreen,
@@ -285,6 +304,73 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Lock type: Flexible vs Strict
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: AppColors.notchColor.withValues(alpha: 0.3)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Savings Lock Type',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Choose how withdrawals work for this goal.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _lockTypeOption(
+                      type: 'flexible',
+                      title: 'Flexible',
+                      subtitle:
+                          'Withdraw anytime. No penalty — best for emergency funds.',
+                      icon: Icons.lock_open_rounded,
+                    ),
+                    const SizedBox(height: 10),
+                    _lockTypeOption(
+                      type: 'strict',
+                      title: 'Strict (Locked)',
+                      subtitle:
+                          'Still your money. Early withdraw before unlock date costs a 15% fee to Kwanpa.',
+                      icon: Icons.lock_rounded,
+                    ),
+                    if (_lockType == null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Selection required',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -481,10 +567,15 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Center(
+              Center(
                 child: Text(
-                  'Funds will be locked securely until your target date.',
-                  style: TextStyle(
+                  _lockType == 'flexible'
+                      ? 'Flexible goals: withdraw anytime with no fee.'
+                      : _lockType == 'strict'
+                          ? 'Strict goals: early withdraw before unlock costs 15%.'
+                          : 'Choose Flexible or Strict before locking funds.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -493,6 +584,76 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
               const SizedBox(height: 20),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _lockTypeOption({
+    required String type,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final selected = _lockType == type;
+    return InkWell(
+      onTap: () => setState(() => _lockType = type),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.vibrantGreen.withValues(alpha: 0.12)
+              : const Color(0xFFF7F9F8),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? AppColors.vibrantGreen
+                : AppColors.notchColor.withValues(alpha: 0.5),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              size: 22,
+              color: selected ? AppColors.darkGreen : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkGreen,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              size: 20,
+              color: selected ? AppColors.darkGreen : AppColors.textSecondary,
+            ),
+          ],
         ),
       ),
     );

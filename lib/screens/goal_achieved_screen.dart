@@ -324,7 +324,8 @@ class _GoalAchievedScreenState extends State<GoalAchievedScreen>
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/home', (route) => false);
                         },
                         child: Text(
                           'Back to Dashboard',

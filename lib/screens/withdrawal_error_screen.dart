@@ -252,7 +252,8 @@ class _WithdrawalErrorScreenState extends State<WithdrawalErrorScreen>
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/home', (route) => false);
                         },
                         child: const Text(
                           'Cancel & Return Home',

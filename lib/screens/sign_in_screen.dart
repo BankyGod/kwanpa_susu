@@ -58,7 +58,7 @@ class _SignInScreenState extends State<SignInScreen> {
       }
 
       AppState().signIn();
-      Navigator.of(context).pushReplacementNamed('/home');
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
     }
   }
 

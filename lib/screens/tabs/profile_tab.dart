@@ -167,7 +167,8 @@ class ProfileTab extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     state.signOut();
-                    Navigator.of(context).pushReplacementNamed('/signin');
+                    Navigator.of(context)
+                        .pushNamedAndRemoveUntil('/signin', (route) => false);
                   },
                   icon: const Icon(Icons.logout_rounded,
                       color: Color(0xFFD32F2F), size: 20),

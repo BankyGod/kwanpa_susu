@@ -87,19 +87,19 @@ class GoalCard extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: goal.isLocked
+                          color: goal.isStrict
                               ? const Color(0xFFFFF8E1)
-                              : const Color(0xFFF5F5F5),
+                              : const Color(0xFFE8F8EA),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          goal.isLocked ? 'Locked' : 'Flexible',
+                          goal.lockTypeLabel,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: goal.isLocked
+                            color: goal.isStrict
                                 ? const Color(0xFFF57F17)
-                                : AppColors.textSecondary,
+                                : const Color(0xFF006E0A),
                           ),
                         ),
                       ),

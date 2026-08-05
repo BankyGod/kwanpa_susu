@@ -219,7 +219,8 @@ class GoalSuccessScreen extends StatelessWidget {
                         height: 54,
                         child: ElevatedButton(
                           onPressed: () {
-                            Navigator.of(context).popUntil((route) => route.isFirst);
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                                '/home', (route) => false);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.vibrantGreen,
@@ -242,7 +243,8 @@ class GoalSuccessScreen extends StatelessWidget {
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/home', (route) => false);
                         },
                         child: const Text(
                           'Home',

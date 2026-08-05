@@ -27,6 +27,7 @@ import 'screens/security_screen.dart';
 import 'screens/goal_achieved_screen.dart';
 import 'screens/transaction_history_screen.dart';
 import 'screens/groups_screen.dart';
+import 'screens/group_detail_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +44,7 @@ class KwanpaSusuApp extends StatelessWidget {
       title: 'Kwanpa Susu',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: '/',
+      initialRoute: AppState().isAuthenticated ? '/home' : '/',
       onGenerateRoute: (settings) {
         Widget page;
         switch (settings.name) {
@@ -120,6 +121,10 @@ class KwanpaSusuApp extends StatelessWidget {
             break;
           case '/groups':
             page = const GroupsScreen();
+            break;
+          case '/group_detail':
+            final groupId = settings.arguments as String?;
+            page = GroupDetailScreen(groupId: groupId);
             break;
           default:
             page = const GetStartedScreen();
