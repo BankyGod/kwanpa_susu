@@ -70,13 +70,35 @@ class ProfileTab extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    _kycChip(context, state),
                   ],
                 ),
               ),
+              if (!state.isKycVerified) ...[
+                const SizedBox(height: 16),
+                _kycBanner(context, state),
+              ],
               const SizedBox(height: 24),
               _section(
                 'Account Settings',
                 [
+                  _item(
+                    icon: Icons.badge_outlined,
+                    title: 'Ghana Card verification',
+                    subtitle: state.kycStatusLabel,
+                    trailing: Icon(
+                      state.isKycVerified
+                          ? Icons.verified_rounded
+                          : Icons.chevron_right_rounded,
+                      size: 20,
+                      color: state.isKycVerified
+                          ? AppColors.forestGreen
+                          : AppColors.textSecondary,
+                    ),
+                    onTap: () => Navigator.of(context)
+                        .pushNamed('/verify_ghana_card'),
+                  ),
                   _item(
                     icon: Icons.person_outline_rounded,
                     title: 'Personal Information',
@@ -199,6 +221,104 @@ class ProfileTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _kycChip(BuildContext context, AppState state) {
+    final verified = state.isKycVerified;
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pushNamed('/verify_ghana_card'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: verified
+              ? AppColors.vibrantGreen.withValues(alpha: 0.2)
+              : const Color(0xFFFFF3E0),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              verified ? Icons.verified_rounded : Icons.warning_amber_rounded,
+              size: 14,
+              color: verified ? AppColors.forestGreen : const Color(0xFFE65100),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              verified ? 'Ghana Card verified' : state.kycStatusLabel,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color:
+                    verified ? AppColors.forestGreen : const Color(0xFFE65100),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kycBanner(BuildContext context, AppState state) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).pushNamed('/verify_ghana_card'),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppColors.notchColor.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.darkGreen.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.badge_outlined,
+                    color: AppColors.darkGreen),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Verify Ghana Card',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      state.isKycPending
+                          ? 'Verification is in progress'
+                          : 'Required for withdrawals and Group Susu',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

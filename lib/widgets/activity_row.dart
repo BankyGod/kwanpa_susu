@@ -49,7 +49,9 @@ class ActivityRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    item.date,
+                    item.category != null && item.category!.isNotEmpty
+                        ? '${item.date} · ${item.category}'
+                        : item.date,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,

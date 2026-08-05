@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/receipt_sheet.dart';
+import '../utils/money_format.dart';
 
 class WithdrawalSuccessScreen extends StatefulWidget {
   final double amount;
@@ -166,7 +168,7 @@ class _WithdrawalSuccessScreenState extends State<WithdrawalSuccessScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'GH₵ ${widget.amount.toStringAsFixed(2)} has been sent to\nyour mobile account.',
+                          '${formatGhs(widget.amount, decimals: true)} has been sent to\nyour mobile account.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 14,
@@ -196,7 +198,7 @@ class _WithdrawalSuccessScreenState extends State<WithdrawalSuccessScreen>
                               _buildBentoRow(
                                 icon: Icons.account_balance_wallet_outlined,
                                 label: 'Withdrawal Amount',
-                                value: 'GH₵ ${widget.amount.toStringAsFixed(2)}',
+                                value: formatGhs(widget.amount, decimals: true),
                                 isBold: true,
                                 valueColor: AppColors.forestGreen,
                               ),
@@ -222,7 +224,7 @@ class _WithdrawalSuccessScreenState extends State<WithdrawalSuccessScreen>
                               _buildBentoRow(
                                 icon: Icons.verified_user_outlined,
                                 label: 'Processing Fee',
-                                value: 'Free (GH₵ 0.00)',
+                                value: 'Free (${formatGhs(0, decimals: true)})',
                                 valueColor: AppColors.darkGreen,
                               ),
                             ],
@@ -253,7 +255,7 @@ class _WithdrawalSuccessScreenState extends State<WithdrawalSuccessScreen>
                             elevation: 3,
                             shadowColor: AppColors.vibrantGreen.withValues(alpha: 0.4),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(30),
                             ),
                           ),
                           child: const Text(
@@ -273,13 +275,20 @@ class _WithdrawalSuccessScreenState extends State<WithdrawalSuccessScreen>
                         height: 54,
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Receipt downloaded successfully')),
+                            showTransactionReceipt(
+                              context,
+                              title: 'Withdrawal Receipt',
+                              amount: widget.amount,
+                              counterpartLabel: 'Destination',
+                              counterpartValue: widget.destinationAccount,
+                              transactionId: widget.transactionId,
+                              dateTimeStr: widget.dateTimeStr,
                             );
                           },
-                          icon: const Icon(Icons.download_rounded, color: AppColors.darkGreen, size: 20),
+                          icon: const Icon(Icons.receipt_long_outlined,
+                              color: AppColors.darkGreen, size: 20),
                           label: const Text(
-                            'Download Receipt',
+                            'View Receipt',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -287,9 +296,10 @@ class _WithdrawalSuccessScreenState extends State<WithdrawalSuccessScreen>
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.darkGreen, width: 1.5),
+                            side: const BorderSide(
+                                color: AppColors.darkGreen, width: 1.5),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(30),
                             ),
                           ),
                         ),

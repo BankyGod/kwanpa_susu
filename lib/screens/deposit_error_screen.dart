@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/money_format.dart';
 
 class DepositErrorScreen extends StatefulWidget {
   final double amount;
@@ -153,7 +154,7 @@ class _DepositErrorScreenState extends State<DepositErrorScreen>
                               ),
                               children: [
                                 TextSpan(
-                                  text: 'GH₵ ${widget.amount.toStringAsFixed(2)}',
+                                  text: formatGhs(widget.amount, decimals: true),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.darkGreen,
@@ -188,7 +189,7 @@ class _DepositErrorScreenState extends State<DepositErrorScreen>
                             children: [
                               _buildCardRow(
                                 label: 'Attempted Amount',
-                                value: 'GH₵ ${widget.amount.toStringAsFixed(2)}',
+                                value: formatGhs(widget.amount, decimals: true),
                                 isBold: true,
                               ),
                               const Divider(height: 24, thickness: 1, color: Color(0xFFF5F5F5)),

@@ -7,6 +7,107 @@ import '../widgets/shimmer_loader.dart';
 class PaymentMethodsScreen extends StatelessWidget {
   const PaymentMethodsScreen({super.key});
 
+  void _showAddBank(BuildContext context) {
+    final bankController = TextEditingController();
+    final accountController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            top: 24,
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Add Bank Account',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkGreen,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: bankController,
+                decoration: InputDecoration(
+                  labelText: 'Bank name',
+                  hintText: 'e.g. GCB Bank',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: accountController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Account number',
+                  hintText: '0123456789',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final bank = bankController.text.trim();
+                    final account = accountController.text.trim();
+                    if (bank.isEmpty || account.length < 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Enter bank name and account number')),
+                      );
+                      return;
+                    }
+                    final masked = account.length >= 4
+                        ? '**** ${account.substring(account.length - 4)}'
+                        : account;
+                    AppState().addPaymentMethod(
+                      name: bank,
+                      maskedNumber: masked,
+                      type: 'bank',
+                      accent: const Color(0xFF1B5E20),
+                    );
+                    Navigator.pop(ctx);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.vibrantGreen,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Save Bank',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkGreenAccent,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showAddMoMo(BuildContext context) {
     final phoneController = TextEditingController();
     String network = 'MTN Mobile Money';
@@ -198,20 +299,28 @@ class PaymentMethodsScreen extends StatelessWidget {
                         ),
                         ...momo.map((m) => _methodTile(context, m)),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Cards & Bank',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.darkGreen,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Cards & Bank',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkGreen,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => _showAddBank(context),
+                              child: const Text('Add'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
                         if (banks.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Text(
-                              'No bank cards linked yet.',
+                              'No bank accounts linked yet.',
                               style: TextStyle(
                                   color: AppColors.textSecondary, fontSize: 13),
                             ),

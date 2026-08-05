@@ -55,6 +55,49 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
     }
   }
 
+  double get _projectedContribution {
+    final target = double.tryParse(_targetAmountController.text.trim()) ?? 0;
+    if (target <= 0) return 0;
+
+    int days = 30;
+    final dateText = _targetDateController.text.trim();
+    if (dateText.isNotEmpty) {
+      final parts = dateText.split('/');
+      if (parts.length == 3) {
+        final month = int.tryParse(parts[0]);
+        final day = int.tryParse(parts[1]);
+        final year = int.tryParse(parts[2]);
+        if (month != null && day != null && year != null) {
+          final targetDate = DateTime(year, month, day);
+          final diff = targetDate.difference(DateTime.now()).inDays;
+          if (diff > 0) days = diff;
+        }
+      }
+    }
+
+    switch (_selectedFrequency) {
+      case 'Weekly':
+        final weeks = (days / 7).ceil().clamp(1, 9999);
+        return target / weeks;
+      case 'Monthly':
+        final months = (days / 30).ceil().clamp(1, 9999);
+        return target / months;
+      default:
+        return target / days;
+    }
+  }
+
+  String get _projectionUnit {
+    switch (_selectedFrequency) {
+      case 'Weekly':
+        return '/ week';
+      case 'Monthly':
+        return '/ month';
+      default:
+        return '/ day';
+    }
+  }
+
   void _createGoal() {
     final title = _titleController.text.trim();
     final targetText = _targetAmountController.text.trim();
@@ -101,13 +144,17 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
         ? _targetDateController.text
         : (_lockType == 'flexible' ? 'Flexible' : '12/31/2026');
 
+    final contribution = _projectedContribution > 0
+        ? double.parse(_projectedContribution.toStringAsFixed(2))
+        : 25.00;
+
     AppState().addGoal(
       title: title,
       targetAmount: targetAmount,
       frequency: _selectedFrequency,
       lockDate: dateStr,
       isAutoSave: _autoContributions,
-      autoSaveAmount: 25.00,
+      autoSaveAmount: contribution,
       lockType: _lockType!,
     );
 
@@ -118,7 +165,7 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
           targetAmount: targetAmount,
           targetDate: dateStr,
           frequency: _selectedFrequency,
-          contributionAmount: 25.00,
+          contributionAmount: contribution,
         ),
       ),
     );
@@ -240,6 +287,7 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
                       child: TextField(
                         controller: _targetAmountController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => setState(() {}),
                         style: const TextStyle(fontSize: 16, color: AppColors.darkGreen, fontWeight: FontWeight.bold),
                         decoration: const InputDecoration(
                           prefixIcon: Padding(
@@ -248,9 +296,9 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  '₵',
+                                  'GHS',
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.darkGreen,
                                   ),
@@ -494,22 +542,22 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Row(
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          '₵25.00',
-                          style: TextStyle(
+                          'GHS ${_projectedContribution.toStringAsFixed(2)}',
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
-                        SizedBox(width: 4),
+                        const SizedBox(width: 4),
                         Text(
-                          '/ day',
-                          style: TextStyle(
+                          _projectionUnit,
+                          style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFFA3B3A9),
                           ),

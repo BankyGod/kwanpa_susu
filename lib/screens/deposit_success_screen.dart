@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
+import '../utils/receipt_sheet.dart';
+import '../utils/money_format.dart';
 
 class DepositSuccessScreen extends StatefulWidget {
   final double amount;
@@ -187,7 +190,7 @@ class _DepositSuccessScreenState extends State<DepositSuccessScreen>
                               _buildCardRow(
                                 label: 'Amount',
                                 valueWidget: Text(
-                                  'GHS ${widget.amount.toStringAsFixed(2)}',
+                                  formatGhs(widget.amount, decimals: true),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -265,13 +268,56 @@ class _DepositSuccessScreenState extends State<DepositSuccessScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            AppState().setMonthlyIncome(widget.amount);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Monthly income set to GHS ${widget.amount.toStringAsFixed(0)}',
+                                ),
+                              ),
+                            );
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                                '/home', (route) => false);
+                            AppState().openBudgetTab();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                                color: AppColors.darkGreen, width: 1.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: const Text(
+                            'Set as this month’s income',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.darkGreen,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       TextButton.icon(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Viewing receipt...')),
+                          showTransactionReceipt(
+                            context,
+                            title: 'Deposit Receipt',
+                            amount: widget.amount,
+                            counterpartLabel: 'Source',
+                            counterpartValue: widget.sourceAccount,
+                            transactionId: widget.transactionId,
+                            dateTimeStr: widget.dateTimeStr,
+                            newBalance: widget.newBalance,
                           );
                         },
-                        icon: const Icon(Icons.receipt_long_outlined, color: AppColors.darkGreen, size: 18),
+                        icon: const Icon(Icons.receipt_long_outlined,
+                            color: AppColors.darkGreen, size: 18),
                         label: const Text(
                           'View Receipt',
                           style: TextStyle(

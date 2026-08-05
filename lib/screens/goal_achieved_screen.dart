@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/money_format.dart';
+import '../widgets/kyc_gate.dart';
 
 class GoalAchievedScreen extends StatefulWidget {
   final String goalTitle;
@@ -258,7 +260,7 @@ class _GoalAchievedScreenState extends State<GoalAchievedScreen>
                             children: [
                               _buildSummaryRow(
                                 label: 'Total Saved',
-                                value: 'GH₵ ${widget.targetAmount.toStringAsFixed(2)}',
+                                value: formatGhs(widget.targetAmount, decimals: true),
                                 valueColor: AppColors.vibrantGreen,
                                 isBold: true,
                               ),
@@ -271,7 +273,7 @@ class _GoalAchievedScreenState extends State<GoalAchievedScreen>
                               const Divider(height: 24, color: Color(0xFF004D38)),
                               _buildSummaryRow(
                                 label: 'Susu Reward Earned',
-                                value: '+ GH₵ 50.00 Bonus',
+                                value: '+ ${formatGhs(50, decimals: true)} Bonus',
                                 valueColor: const Color(0xFFFFD700),
                                 isBold: true,
                               ),
@@ -293,8 +295,14 @@ class _GoalAchievedScreenState extends State<GoalAchievedScreen>
                         width: double.infinity,
                         height: 54,
                         child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pushNamed('/withdraw');
+                          onPressed: () async {
+                            final ok = await ensureKycVerified(
+                              context,
+                              actionLabel: 'withdraw',
+                            );
+                            if (ok && context.mounted) {
+                              Navigator.of(context).pushNamed('/withdraw');
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.vibrantGreen,

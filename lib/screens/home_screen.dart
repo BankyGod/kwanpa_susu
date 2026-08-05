@@ -29,6 +29,15 @@ class _HomeScreenState extends State<HomeScreen> {
       listenable: AppState(),
       builder: (context, _) {
         final state = AppState();
+        if (state.pendingHomeTab != null &&
+            state.pendingHomeTab != _currentIndex) {
+          final tab = state.pendingHomeTab!;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() => _currentIndex = tab);
+            AppState().clearPendingHomeTab();
+          });
+        }
 
         return Scaffold(
           backgroundColor: AppColors.background,

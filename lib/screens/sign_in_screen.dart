@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../state/app_state.dart';
+import '../services/biometric_service.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -18,6 +19,34 @@ class _SignInScreenState extends State<SignInScreen> {
   final List<FocusNode> _pinFocusNodes = List.generate(4, (_) => FocusNode());
 
   final String _selectedCountryCode = '+233';
+  bool _showBiometric = false;
+  String _bioLabel = 'Biometrics';
+  IconDataHint _iconHint = IconDataHint.fingerprint;
+  bool _hasFace = false;
+  bool _hasFingerprint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneController.text = AppState().phone.replaceAll(RegExp(r'[^\d]'), '').replaceFirst(RegExp(r'^233'), '');
+    _prepareBiometric();
+  }
+
+  Future<void> _prepareBiometric() async {
+    final state = AppState();
+    if (!state.biometricEnabled) return;
+    final cap = await BiometricService.instance.capability;
+    if (!cap.isAvailable || !mounted) return;
+    setState(() {
+      _showBiometric = true;
+      _bioLabel = cap.label;
+      _hasFace = cap.hasFace || cap.hasWeak;
+      _hasFingerprint = cap.hasFingerprint || cap.hasStrong || cap.hasWeak;
+      _iconHint = (_hasFace && _hasFingerprint)
+          ? IconDataHint.both
+          : (cap.hasFace ? IconDataHint.face : IconDataHint.fingerprint);
+    });
+  }
 
   @override
   void dispose() {
@@ -32,6 +61,25 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   String get _pinCode => _pinControllers.map((c) => c.text).join();
+
+  void _completeSignIn() {
+    AppState().signIn();
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+  }
+
+  Future<void> _handleBiometricSignIn() async {
+    final ok = await BiometricService.instance.authenticate(
+      reason: 'Sign in to Kwanpa Susu with $_bioLabel',
+    );
+    if (!mounted) return;
+    if (ok) {
+      _completeSignIn();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$_bioLabel failed. Use your PIN instead.')),
+      );
+    }
+  }
 
   void _handleSignIn() {
     if (_formKey.currentState!.validate()) {
@@ -57,8 +105,7 @@ class _SignInScreenState extends State<SignInScreen> {
         return;
       }
 
-      AppState().signIn();
-      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      _completeSignIn();
     }
   }
 
@@ -330,6 +377,63 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   ),
                 ),
+                if (_showBiometric) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: _handleBiometricSignIn,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: AppColors.darkGreen, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_iconHint == IconDataHint.both || _hasFace)
+                            const Icon(
+                              Icons.face_retouching_natural_rounded,
+                              color: AppColors.darkGreen,
+                            ),
+                          if (_iconHint == IconDataHint.both) ...[
+                            const SizedBox(width: 4),
+                            const Text(
+                              '/',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkGreen,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          if (_iconHint == IconDataHint.both ||
+                              _iconHint == IconDataHint.fingerprint ||
+                              _hasFingerprint)
+                            const Icon(
+                              Icons.fingerprint_rounded,
+                              color: AppColors.darkGreen,
+                            ),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              'Unlock with $_bioLabel',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
 
                 // Registration Footer Link

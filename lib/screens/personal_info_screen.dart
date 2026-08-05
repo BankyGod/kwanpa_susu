@@ -22,9 +22,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     final state = AppState();
     _fullNameController = TextEditingController(text: state.fullName);
     _phoneController = TextEditingController(text: state.phone);
-    _emailController = TextEditingController(text: 'kwame.mensah@gmail.com');
-    _ghanaCardController = TextEditingController(text: 'GHA-729482941-8');
-    _dobController = TextEditingController(text: '14 / 08 / 1994');
+    _emailController = TextEditingController(text: state.email);
+    _ghanaCardController = TextEditingController(text: state.ghanaCardId);
+    _dobController = TextEditingController(text: state.dateOfBirth);
   }
 
   @override
@@ -37,10 +37,26 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     super.dispose();
   }
 
+  Future<void> _openVerify() async {
+    await Navigator.of(context).pushNamed('/verify_ghana_card');
+    if (!mounted) return;
+    final state = AppState();
+    setState(() {
+      _ghanaCardController.text = state.ghanaCardId;
+      _fullNameController.text = state.fullName;
+      if (state.dateOfBirth.isNotEmpty) {
+        _dobController.text = state.dateOfBirth;
+      }
+    });
+  }
+
   void _saveChanges() {
     AppState().updateProfile(
       name: _fullNameController.text,
       phoneNumber: _phoneController.text,
+      emailAddress: _emailController.text,
+      idNumber: _ghanaCardController.text,
+      dob: _dobController.text,
     );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -53,7 +69,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ListenableBuilder(
+      listenable: AppState(),
+      builder: (context, _) {
+        final state = AppState();
+        final verified = state.isKycVerified;
+
+        return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
@@ -121,10 +143,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                                         ),
                                       ],
                                     ),
-                                    child: const Center(
+                                    child: Center(
                                       child: Text(
-                                        'KM',
-                                        style: TextStyle(
+                                        state.initials,
+                                        style: const TextStyle(
                                           fontSize: 32,
                                           fontWeight: FontWeight.bold,
                                           color: AppColors.vibrantGreen,
@@ -171,30 +193,45 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // Name & Subtitle
-                            const Text(
-                              'Kwame Mensah',
-                              style: TextStyle(
+                            Text(
+                              state.fullName,
+                              style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.darkGreen,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.verified_rounded, color: AppColors.forestGreen, size: 14),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Verified Member • Ghana Card Active',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.textSecondary.withValues(alpha: 0.9),
+                            GestureDetector(
+                              onTap: _openVerify,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    verified
+                                        ? Icons.verified_rounded
+                                        : Icons.badge_outlined,
+                                    color: verified
+                                        ? AppColors.forestGreen
+                                        : const Color(0xFFE65100),
+                                    size: 14,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    verified
+                                        ? 'Verified Member • Ghana Card Active'
+                                        : state.kycStatusLabel,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: verified
+                                          ? AppColors.textSecondary
+                                              .withValues(alpha: 0.9)
+                                          : const Color(0xFFE65100),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -227,29 +264,68 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         label: 'Ghana Card (ID)',
                         icon: Icons.badge_outlined,
                         isReadOnly: true,
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.vibrantGreen.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_rounded, color: AppColors.forestGreen, size: 12),
-                              SizedBox(width: 4),
-                              Text(
-                                'Verified',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.forestGreen,
+                        trailing: GestureDetector(
+                          onTap: _openVerify,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: verified
+                                  ? AppColors.vibrantGreen
+                                      .withValues(alpha: 0.2)
+                                  : const Color(0xFFFFF3E0),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  verified
+                                      ? Icons.check_circle_rounded
+                                      : Icons.arrow_forward_rounded,
+                                  color: verified
+                                      ? AppColors.forestGreen
+                                      : const Color(0xFFE65100),
+                                  size: 12,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  verified ? 'Verified' : 'Verify',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: verified
+                                        ? AppColors.forestGreen
+                                        : const Color(0xFFE65100),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
+                      if (!verified) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: _openVerify,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.darkGreen),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text(
+                              'Verify Ghana Card',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkGreen,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       _buildFormField(
                         controller: _dobController,
@@ -293,6 +369,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           ],
         ),
       ),
+    );
+      },
     );
   }
 

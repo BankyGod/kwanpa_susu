@@ -187,26 +187,42 @@ DateTime? parseGoalLockDate(String raw) {
 
 class TransactionItem {
   final String id;
-  final String title;
-  final String date;
+  String? _title;
+  String? _date;
   final double amount;
   final bool isDeposit;
   final IconData icon;
-  final String status;
-  final String method;
+  String? _status;
+  String? _method;
   final String? category;
+  /// Budget month key, e.g. `2026-08`. Null counts toward the current period.
+  final String? budgetPeriod;
+  int? _createdAtMs;
 
   TransactionItem({
     required this.id,
-    required this.title,
-    required this.date,
+    required String title,
+    required String date,
     required this.amount,
     required this.isDeposit,
     required this.icon,
-    this.status = 'Completed',
-    this.method = 'MTN MoMo',
+    String status = 'Completed',
+    String method = 'MTN MoMo',
     this.category,
-  });
+    this.budgetPeriod,
+    int? createdAtMs,
+  })  : _title = title,
+        _date = date,
+        _status = status,
+        _method = method,
+        _createdAtMs = createdAtMs ?? DateTime.now().millisecondsSinceEpoch;
+
+  String get title => _title ?? 'Transaction';
+  String get date => _date ?? '';
+  String get status => _status ?? 'Completed';
+  String get method => _method ?? 'MTN MoMo';
+  int get createdAtMs =>
+      _createdAtMs ?? DateTime.now().millisecondsSinceEpoch;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -218,15 +234,17 @@ class TransactionItem {
         'status': status,
         'method': method,
         'category': category,
+        'budgetPeriod': budgetPeriod,
+        'createdAtMs': createdAtMs,
       };
 
   factory TransactionItem.fromJson(Map<String, dynamic> json) =>
       TransactionItem(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        date: json['date'] as String,
-        amount: (json['amount'] as num).toDouble(),
-        isDeposit: json['isDeposit'] as bool,
+        id: json['id'] as String? ?? 'tx_unknown',
+        title: json['title'] as String? ?? 'Transaction',
+        date: json['date'] as String? ?? '',
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        isDeposit: json['isDeposit'] as bool? ?? false,
         icon: IconData(
           // ignore: non_const_argument_for_const_parameter
           json['iconCode'] as int? ?? 0xe8b0,
@@ -235,28 +253,46 @@ class TransactionItem {
         status: json['status'] as String? ?? 'Completed',
         method: json['method'] as String? ?? 'MTN MoMo',
         category: json['category'] as String?,
+        budgetPeriod: json['budgetPeriod'] as String?,
+        createdAtMs: json['createdAtMs'] as int? ??
+            DateTime.now().millisecondsSinceEpoch,
       );
 }
 
 class BudgetCategory {
   final String id;
-  String name;
+  String? _name;
   double spent;
   double total;
   final IconData icon;
   final Color color;
+  /// Protected buckets (e.g. Susu) get a stronger overspend warning.
+  bool? _isProtected;
 
   BudgetCategory({
     required this.id,
-    required this.name,
+    required String name,
     required this.spent,
     required this.total,
     required this.icon,
     required this.color,
-  });
+    bool isProtected = false,
+  })  : _name = name,
+        _isProtected = isProtected;
 
-  double get progress => total == 0 ? 0 : (spent / total).clamp(0.0, 1.0);
+  String get name => _name ?? 'Category';
+  set name(String value) => _name = value;
+
+  bool get isProtected => _isProtected ?? false;
+  set isProtected(bool value) => _isProtected = value;
+
+  double get progress => total <= 0 ? 0 : (spent / total).clamp(0.0, 1.0);
+  double get rawProgress => total <= 0 ? 0 : spent / total;
   bool get isOverBudget => spent > total;
+  bool get isNearLimit => !isOverBudget && rawProgress >= 0.8;
+  double get remaining => total - spent;
+  double get weeklyLimit => total / 4;
+  double get leftover => remaining > 0 ? remaining : 0;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -265,20 +301,29 @@ class BudgetCategory {
         'total': total,
         'iconCode': icon.codePoint,
         'colorValue': _colorToInt(color),
+        'isProtected': isProtected,
       };
 
-  factory BudgetCategory.fromJson(Map<String, dynamic> json) => BudgetCategory(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        spent: (json['spent'] as num).toDouble(),
-        total: (json['total'] as num).toDouble(),
-        icon: IconData(
-          // ignore: non_const_argument_for_const_parameter
-          json['iconCode'] as int? ?? 0xe574,
-          fontFamily: 'MaterialIcons',
-        ),
-        color: Color(json['colorValue'] as int? ?? 0xFF006E0A),
-      );
+  factory BudgetCategory.fromJson(Map<String, dynamic> json) {
+    final name = json['name'] as String? ?? 'Category';
+    final lower = name.toLowerCase();
+    final legacyProtected = lower.contains('susu') ||
+        lower.contains('savings') ||
+        lower.contains('group');
+    return BudgetCategory(
+      id: json['id'] as String? ?? 'b_unknown',
+      name: name,
+      spent: (json['spent'] as num?)?.toDouble() ?? 0,
+      total: (json['total'] as num?)?.toDouble() ?? 0,
+      icon: IconData(
+        // ignore: non_const_argument_for_const_parameter
+        json['iconCode'] as int? ?? 0xe574,
+        fontFamily: 'MaterialIcons',
+      ),
+      color: Color(json['colorValue'] as int? ?? 0xFF006E0A),
+      isProtected: json['isProtected'] as bool? ?? legacyProtected,
+    );
+  }
 }
 
 int _colorToInt(Color color) {
@@ -899,13 +944,20 @@ class AppState extends ChangeNotifier {
   factory AppState() => _instance;
   AppState._internal();
 
-  static const _storageKey = 'kwanpa_susu_state_v6';
+  static const _storageKey = 'kwanpa_susu_state_v10';
 
   // User
   String fullName = 'Kwame Mensah';
   String phone = '+233 54 123 4567';
+  String email = 'kwame.mensah@gmail.com';
+  String ghanaCardId = '';
+  String dateOfBirth = '';
+  /// unverified | pending | verified | failed
+  String kycStatus = 'unverified';
+  String? kycVerifiedAt;
+  String? kycFailReason;
   String pin = '1234';
-  bool biometricEnabled = true;
+  bool biometricEnabled = false;
   bool twoFactorEnabled = true;
   bool notificationsEnabled = true;
   String language = 'English (UK)';
@@ -947,19 +999,37 @@ class AppState extends ChangeNotifier {
 
   // Budget
   double monthlyIncome = 4500.00;
+  String? _currentBudgetPeriod;
+  int? pendingHomeTab; // HomeScreen can switch tabs (1 = Budget)
+  bool? _budgetShowWeekly;
+  final Set<String> _budgetAlertKeys = {};
+  /// Leftover limits waiting to apply when a new month starts.
+  final Map<String, double> _pendingLimitCarry = {};
+
+  String get currentBudgetPeriod =>
+      _currentBudgetPeriod ?? _periodKeyFor(DateTime.now());
+  set currentBudgetPeriod(String value) => _currentBudgetPeriod = value;
+
+  bool get budgetShowWeekly => _budgetShowWeekly ?? false;
+  set budgetShowWeekly(bool value) => _budgetShowWeekly = value;
+
+  static String _periodKeyFor(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
   final List<BudgetCategory> _budgetCategories = [
     BudgetCategory(
       id: 'b1',
       name: 'Susu & Savings',
-      spent: 1000,
+      spent: 0,
       total: 1000,
       icon: Icons.savings_rounded,
       color: const Color(0xFF006E0A),
+      isProtected: true,
     ),
     BudgetCategory(
       id: 'b2',
       name: 'Food & Groceries',
-      spent: 850,
+      spent: 0,
       total: 1200,
       icon: Icons.restaurant_rounded,
       color: const Color(0xFFE65100),
@@ -967,7 +1037,7 @@ class AppState extends ChangeNotifier {
     BudgetCategory(
       id: 'b3',
       name: 'Utilities & Bills',
-      spent: 600,
+      spent: 0,
       total: 700,
       icon: Icons.receipt_long_rounded,
       color: const Color(0xFF0066CC),
@@ -975,10 +1045,27 @@ class AppState extends ChangeNotifier {
     BudgetCategory(
       id: 'b4',
       name: 'Transport & Fuel',
-      spent: 400,
+      spent: 0,
       total: 600,
       icon: Icons.directions_car_rounded,
       color: const Color(0xFF7B1FA2),
+    ),
+    BudgetCategory(
+      id: 'b5',
+      name: 'Group Susu',
+      spent: 0,
+      total: 1500,
+      icon: Icons.groups_rounded,
+      color: const Color(0xFF00838F),
+      isProtected: true,
+    ),
+    BudgetCategory(
+      id: 'b6',
+      name: 'Fees',
+      spent: 0,
+      total: 200,
+      icon: Icons.gavel_rounded,
+      color: const Color(0xFFBF360C),
     ),
   ];
 
@@ -986,9 +1073,495 @@ class AppState extends ChangeNotifier {
       List.unmodifiable(_budgetCategories);
   double get totalExpenses =>
       _budgetCategories.fold(0.0, (s, c) => s + c.spent);
+  double get totalAllocated =>
+      _budgetCategories.fold(0.0, (s, c) => s + c.total);
   double get remainingBudget => monthlyIncome - totalExpenses;
-  double get budgetUsedPercent =>
-      (totalExpenses / monthlyIncome).clamp(0.0, 1.0);
+  /// Unclamped income utilization (can be > 1.0 when over budget).
+  double get budgetUsedRatio =>
+      monthlyIncome <= 0 ? 0 : totalExpenses / monthlyIncome;
+  double get budgetUsedPercent => budgetUsedRatio.clamp(0.0, 1.0);
+  bool get isOverBudget => totalExpenses > monthlyIncome;
+  double get allocatedUsedRatio =>
+      totalAllocated <= 0 ? 0 : totalExpenses / totalAllocated;
+  double get allocatedUsedPercent => allocatedUsedRatio.clamp(0.0, 1.0);
+
+  String get budgetPeriodLabel {
+    final parts = currentBudgetPeriod.split('-');
+    if (parts.length != 2) return currentBudgetPeriod;
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final m = int.tryParse(parts[1]) ?? 1;
+    return '${months[m - 1]} ${parts[0]}';
+  }
+
+  double get totalLeftoverLimits =>
+      _budgetCategories.fold(0.0, (s, c) => s + c.leftover);
+
+  double weeklySpentFor(BudgetCategory category) {
+    final now = DateTime.now();
+    var sum = 0.0;
+    for (final tx in _transactions) {
+      if (tx.isDeposit) continue;
+      if ((tx.category ?? '').toLowerCase() != category.name.toLowerCase()) {
+        continue;
+      }
+      final day = DateTime.fromMillisecondsSinceEpoch(tx.createdAtMs);
+      final diff = DateTime(now.year, now.month, now.day)
+          .difference(DateTime(day.year, day.month, day.day))
+          .inDays;
+      if (diff >= 0 && diff < 7) sum += tx.amount;
+    }
+    return sum;
+  }
+
+  double displayLimitFor(BudgetCategory c) =>
+      budgetShowWeekly ? c.weeklyLimit : c.total;
+
+  double displaySpentFor(BudgetCategory c) =>
+      budgetShowWeekly ? weeklySpentFor(c) : c.spent;
+
+  /// Soft-lock warning before withdraw / cash expense. Null = ok.
+  String? budgetImpactWarning(String categoryName, double amount) {
+    final cat = budgetCategoryByName(categoryName);
+    if (cat == null || amount <= 0) return null;
+
+    final spent = budgetShowWeekly ? weeklySpentFor(cat) : cat.spent;
+    final limit = budgetShowWeekly ? cat.weeklyLimit : cat.total;
+    final after = spent + amount;
+    final period = budgetShowWeekly ? 'this week' : 'this month';
+
+    if (cat.isProtected && after > limit) {
+      return '“${cat.name}” is protected savings. This GHS ${amount.toStringAsFixed(0)} spend would push it over the $period limit (GHS ${limit.toStringAsFixed(0)}). Only continue if you must.';
+    }
+    if (after > limit) {
+      return 'This will put “${cat.name}” over budget $period (GHS ${after.toStringAsFixed(0)} / ${limit.toStringAsFixed(0)}). Continue anyway?';
+    }
+    if (after / (limit <= 0 ? 1 : limit) >= 0.8 && spent / (limit <= 0 ? 1 : limit) < 0.8) {
+      return 'This will use 80%+ of your “${cat.name}” limit $period. Continue?';
+    }
+    return null;
+  }
+
+  String get budgetTipOfTheWeek {
+    if (_budgetCategories.isEmpty) {
+      return 'Add categories so Kwanpa can guide your spending.';
+    }
+    final ranked = [..._budgetCategories]
+      ..sort((a, b) => b.rawProgress.compareTo(a.rawProgress));
+    final worst = ranked.first;
+    if (worst.isOverBudget) {
+      final over = worst.spent - worst.total;
+      return 'Cut ${worst.name} by GHS ${over.toStringAsFixed(0)} to get back on track.';
+    }
+    if (worst.isNearLimit) {
+      return 'Slow down on ${worst.name} — only GHS ${worst.leftover.toStringAsFixed(0)} left this month.';
+    }
+    final food = budgetCategoryByName('Food & Groceries');
+    final transport = budgetCategoryByName('Transport & Fuel');
+    if (food != null && food.leftover >= 50) {
+      return 'Cut food by GHS 50 and move it into Susu & Savings this week.';
+    }
+    if (transport != null && transport.leftover >= 30) {
+      return 'Save GHS 30 from transport this week toward your next goal.';
+    }
+    return 'Nice pace — keep auto-saving and review Budget every Friday.';
+  }
+
+  String? get susuGoalLinkMessage {
+    final susu = budgetCategoryByName('Susu & Savings');
+    if (susu == null) return null;
+    final activeGoals = _goals.where((g) => !g.isAchieved).toList();
+    if (activeGoals.isEmpty) {
+      return susu.spent < susu.total
+          ? 'You’re GHS ${susu.leftover.toStringAsFixed(0)} under your savings budget — create or fund a goal.'
+          : null;
+    }
+    final monthlyAuto = activeGoals.fold<double>(0, (s, g) {
+      if (!g.isAutoSave) return s;
+      return s +
+          switch (g.frequency) {
+            'Daily' => g.autoSaveAmount * 30,
+            'Weekly' => g.autoSaveAmount * 4,
+            _ => g.autoSaveAmount,
+          };
+    });
+    if (monthlyAuto <= 0) return null;
+    final gap = monthlyAuto - susu.spent;
+    if (gap > 0) {
+      return 'You’re GHS ${gap.toStringAsFixed(0)} behind on planned goal auto-saves this month.';
+    }
+    return 'Savings are on pace with your goal auto-saves. Keep it up.';
+  }
+
+  void setBudgetShowWeekly(bool weekly) {
+    budgetShowWeekly = weekly;
+    notifyListeners();
+  }
+
+  /// Rebuild budget categories safely after schema changes / hot reload.
+  void ensureBudgetModel() {
+    for (final c in _budgetCategories) {
+      // Touch getters so null-safe defaults apply after hot reload.
+      c.name;
+      c.isProtected;
+    }
+    if (_currentBudgetPeriod == null) {
+      _currentBudgetPeriod = _periodKeyFor(DateTime.now());
+    }
+    _recomputeBudgetSpent(notify: false, alert: false);
+  }
+
+  bool _isSavingsOutflow(TransactionItem t) {
+    final c = (t.category ?? '').toLowerCase();
+    return c.contains('susu') ||
+        c.contains('savings') ||
+        c.contains('group');
+  }
+
+  bool _isSpendingOutflow(TransactionItem t) {
+    if (t.isDeposit) return false;
+    return !_isSavingsOutflow(t);
+  }
+
+  DateTime get _today => DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+
+  /// Last 7 calendar days ending today (index 0 = 6 days ago, 6 = today).
+  List<double> get weeklySpendingAmounts {
+    final today = _today;
+    return List.generate(7, (i) {
+      final day = today.subtract(Duration(days: 6 - i));
+      return _transactions
+          .where((t) {
+            if (!_isSpendingOutflow(t)) return false;
+            final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+            return d.year == day.year &&
+                d.month == day.month &&
+                d.day == day.day;
+          })
+          .fold(0.0, (s, t) => s + t.amount);
+    });
+  }
+
+  List<String> get weeklySpendingLabels {
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final today = _today;
+    return List.generate(7, (i) {
+      final day = today.subtract(Duration(days: 6 - i));
+      return names[day.weekday - 1];
+    });
+  }
+
+  /// Last 6 calendar months ending this month.
+  List<double> get monthlySpendingAmounts {
+    final now = DateTime.now();
+    return List.generate(6, (i) {
+      final m = DateTime(now.year, now.month - (5 - i), 1);
+      final next = DateTime(m.year, m.month + 1, 1);
+      return _transactions
+          .where((t) {
+            if (!_isSpendingOutflow(t)) return false;
+            final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+            return !d.isBefore(m) && d.isBefore(next);
+          })
+          .fold(0.0, (s, t) => s + t.amount);
+    });
+  }
+
+  List<String> get monthlySpendingLabels {
+    const names = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final now = DateTime.now();
+    return List.generate(6, (i) {
+      final m = DateTime(now.year, now.month - (5 - i), 1);
+      return names[m.month - 1];
+    });
+  }
+
+  List<double> get activeSpendingAmounts =>
+      analyticsWeekly ? weeklySpendingAmounts : monthlySpendingAmounts;
+
+  List<String> get activeSpendingLabels =>
+      analyticsWeekly ? weeklySpendingLabels : monthlySpendingLabels;
+
+  bool get hasAnalyticsSpendData =>
+      activeSpendingAmounts.any((a) => a > 0);
+
+  double get thisWeekSpending =>
+      weeklySpendingAmounts.fold(0.0, (a, b) => a + b);
+
+  double get lastWeekSpending {
+    final today = _today;
+    final end = today.subtract(const Duration(days: 7));
+    final start = today.subtract(const Duration(days: 13));
+    return _transactions
+        .where((t) {
+          if (!_isSpendingOutflow(t)) return false;
+          final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+          final day = DateTime(d.year, d.month, d.day);
+          return !day.isBefore(start) && !day.isAfter(end);
+        })
+        .fold(0.0, (s, t) => s + t.amount);
+  }
+
+  double get thisMonthSpending {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final next = DateTime(now.year, now.month + 1, 1);
+    return _transactions
+        .where((t) {
+          if (!_isSpendingOutflow(t)) return false;
+          final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+          return !d.isBefore(start) && d.isBefore(next);
+        })
+        .fold(0.0, (s, t) => s + t.amount);
+  }
+
+  double get lastMonthSpending {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month - 1, 1);
+    final next = DateTime(now.year, now.month, 1);
+    return _transactions
+        .where((t) {
+          if (!_isSpendingOutflow(t)) return false;
+          final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+          return !d.isBefore(start) && d.isBefore(next);
+        })
+        .fold(0.0, (s, t) => s + t.amount);
+  }
+
+  double get thisWeekSavings {
+    final today = _today;
+    final start = today.subtract(const Duration(days: 6));
+    return _transactions
+        .where((t) {
+          if (!_isSavingsOutflow(t)) return false;
+          final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+          final day = DateTime(d.year, d.month, d.day);
+          return !day.isBefore(start) && !day.isAfter(today);
+        })
+        .fold(0.0, (s, t) => s + t.amount);
+  }
+
+  double get thisMonthSavings {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final next = DateTime(now.year, now.month + 1, 1);
+    return _transactions
+        .where((t) {
+          if (!_isSavingsOutflow(t)) return false;
+          final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+          return !d.isBefore(start) && d.isBefore(next);
+        })
+        .fold(0.0, (s, t) => s + t.amount);
+  }
+
+  double get periodSpending =>
+      analyticsWeekly ? thisWeekSpending : thisMonthSpending;
+
+  double get periodSavings =>
+      analyticsWeekly ? thisWeekSavings : thisMonthSavings;
+
+  double get priorPeriodSpending =>
+      analyticsWeekly ? lastWeekSpending : lastMonthSpending;
+
+  /// Positive = spent less than prior period (good).
+  double? get spendChangePercent {
+    final prior = priorPeriodSpending;
+    final current = periodSpending;
+    if (prior <= 0 && current <= 0) return null;
+    if (prior <= 0) return -100; // new spend vs nothing
+    return ((prior - current) / prior) * 100;
+  }
+
+  double get savingsRate {
+    final spend = periodSpending;
+    final save = periodSavings;
+    final total = spend + save;
+    if (total <= 0) return 0;
+    return save / total;
+  }
+
+  double get savingsVsIncomeRate {
+    if (monthlyIncome <= 0) return 0;
+    final save = analyticsWeekly ? thisWeekSavings * 4 : thisMonthSavings;
+    return (save / monthlyIncome).clamp(0.0, 2.0);
+  }
+
+  List<TransactionItem> spendingTransactionsForBucket(int index) {
+    if (analyticsWeekly) {
+      if (index < 0 || index > 6) return const [];
+      final day = _today.subtract(Duration(days: 6 - index));
+      return _transactions
+          .where((t) {
+            if (!_isSpendingOutflow(t)) return false;
+            final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+            return d.year == day.year &&
+                d.month == day.month &&
+                d.day == day.day;
+          })
+          .toList();
+    }
+    if (index < 0 || index > 5) return const [];
+    final now = DateTime.now();
+    final m = DateTime(now.year, now.month - (5 - index), 1);
+    final next = DateTime(m.year, m.month + 1, 1);
+    return _transactions
+        .where((t) {
+          if (!_isSpendingOutflow(t)) return false;
+          final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+          return !d.isBefore(m) && d.isBefore(next);
+        })
+        .toList();
+  }
+
+  List<TransactionItem> spendingTransactionsForCategory(String categoryName) {
+    final target = categoryName.toLowerCase();
+    final txs = analyticsWeekly
+        ? _transactions.where((t) {
+            if (!_isSpendingOutflow(t)) return false;
+            final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+            final day = DateTime(d.year, d.month, d.day);
+            final start = _today.subtract(const Duration(days: 6));
+            return !day.isBefore(start) && !day.isAfter(_today);
+          })
+        : _transactions.where((t) {
+            if (!_isSpendingOutflow(t)) return false;
+            final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+            final now = DateTime.now();
+            return d.year == now.year && d.month == now.month;
+          });
+    return txs
+        .where((t) {
+          final name = (t.category == null || t.category!.isEmpty)
+              ? 'other'
+              : t.category!.toLowerCase();
+          return name == target;
+        })
+        .toList();
+  }
+
+  /// Category mix for spending (excludes susu/group) in the active period.
+  List<({String name, double amount, Color color, IconData icon})>
+      get spendingCategoryBreakdown {
+    final map = <String, double>{};
+    final txs = analyticsWeekly
+        ? _transactions.where((t) {
+            if (!_isSpendingOutflow(t)) return false;
+            final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+            final day = DateTime(d.year, d.month, d.day);
+            final start = _today.subtract(const Duration(days: 6));
+            return !day.isBefore(start) && !day.isAfter(_today);
+          })
+        : _transactions.where((t) {
+            if (!_isSpendingOutflow(t)) return false;
+            final d = DateTime.fromMillisecondsSinceEpoch(t.createdAtMs);
+            final now = DateTime.now();
+            return d.year == now.year && d.month == now.month;
+          });
+
+    for (final t in txs) {
+      final name = (t.category == null || t.category!.isEmpty)
+          ? 'Other'
+          : t.category!;
+      map[name] = (map[name] ?? 0) + t.amount;
+    }
+
+    final rows = map.entries.map((e) {
+      final cat = budgetCategoryByName(e.key);
+      return (
+        name: e.key,
+        amount: e.value,
+        color: cat?.color ?? const Color(0xFF607D8B),
+        icon: cat?.icon ?? Icons.category_rounded,
+      );
+    }).toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    return rows;
+  }
+
+  String get analyticsPersonaTitle {
+    final save = periodSavings;
+    final spend = periodSpending;
+    if (save <= 0 && spend <= 0) return 'Getting Started';
+    if (save > spend) return 'The Steady Saver';
+    if (spendChangePercent != null && spendChangePercent! > 10) {
+      return 'The Careful Spender';
+    }
+    if (spend > save * 2) return 'The Active Spender';
+    return 'The Balanced Builder';
+  }
+
+  String get analyticsPersonaSubtitle {
+    switch (analyticsPersonaTitle) {
+      case 'The Steady Saver':
+        return 'You put more into susu/savings than everyday spending. Keep that streak.';
+      case 'The Careful Spender':
+        return 'You’re spending less than last period — great discipline.';
+      case 'The Active Spender':
+        return 'Everyday spending is high vs savings. Protect your susu first.';
+      case 'Getting Started':
+        return 'Log spends and savings to unlock personal insights.';
+      default:
+        return 'A healthy mix of spending and saving. Small weekly wins add up.';
+    }
+  }
+
+  String get analyticsSmartTip {
+    final goalMsg = susuGoalLinkMessage;
+    if (goalMsg != null && goalMsg.contains('behind')) return goalMsg;
+    return budgetTipOfTheWeek;
+  }
+
+  SusuGoal? get primaryActiveGoal {
+    try {
+      return _goals.firstWhere((g) => !g.isAchieved);
+    } catch (_) {
+      return _goals.isNotEmpty ? _goals.first : null;
+    }
+  }
+
+  // Legacy relative factors (kept for any old callers / fallbacks).
+  List<double> get liveWeeklySpendFactors {
+    final amounts = weeklySpendingAmounts;
+    final max = amounts.fold<double>(0, (a, b) => a > b ? a : b);
+    if (max <= 0) return List<double>.filled(7, 0);
+    return amounts.map((v) => max <= 0 ? 0.0 : v / max).toList();
+  }
+
+  List<double> get liveMonthlySpendFactors {
+    final amounts = monthlySpendingAmounts;
+    final max = amounts.fold<double>(0, (a, b) => a > b ? a : b);
+    if (max <= 0) return List<double>.filled(6, 0);
+    return amounts.map((v) => max <= 0 ? 0.0 : v / max).toList();
+  }
 
   final List<SusuGoal> _goals = [
     SusuGoal(
@@ -1053,6 +1626,8 @@ class AppState extends ChangeNotifier {
       icon: Icons.shopping_bag_outlined,
       method: 'MTN MoMo',
       category: 'Food & Groceries',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs: DateTime.now().millisecondsSinceEpoch,
     ),
     TransactionItem(
       id: 'tx2',
@@ -1063,16 +1638,22 @@ class AppState extends ChangeNotifier {
       icon: Icons.account_balance_wallet_outlined,
       method: 'Ecobank Visa',
       category: 'Income',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs:
+          DateTime.now().subtract(const Duration(days: 1)).millisecondsSinceEpoch,
     ),
     TransactionItem(
       id: 'tx3',
       title: 'ECG Prepaid',
-      date: '12 Oct',
+      date: '2 days ago',
       amount: 120.00,
       isDeposit: false,
       icon: Icons.electric_bolt_outlined,
       method: 'MTN MoMo',
       category: 'Utilities & Bills',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs:
+          DateTime.now().subtract(const Duration(days: 2)).millisecondsSinceEpoch,
     ),
     TransactionItem(
       id: 'tx4',
@@ -1082,6 +1663,10 @@ class AppState extends ChangeNotifier {
       isDeposit: true,
       icon: Icons.south_west_rounded,
       method: 'MTN MoMo',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs: DateTime.now()
+          .subtract(const Duration(hours: 3))
+          .millisecondsSinceEpoch,
     ),
     TransactionItem(
       id: 'tx5',
@@ -1091,6 +1676,63 @@ class AppState extends ChangeNotifier {
       isDeposit: false,
       icon: Icons.savings_rounded,
       method: 'Susu Wallet',
+      category: 'Susu & Savings',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs: DateTime.now()
+          .subtract(const Duration(days: 1, hours: 4))
+          .millisecondsSinceEpoch,
+    ),
+    TransactionItem(
+      id: 'tx6',
+      title: 'Uber / Bolt',
+      date: '3 days ago',
+      amount: 45.00,
+      isDeposit: false,
+      icon: Icons.directions_car_rounded,
+      method: 'MTN MoMo',
+      category: 'Transport & Fuel',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs:
+          DateTime.now().subtract(const Duration(days: 3)).millisecondsSinceEpoch,
+    ),
+    TransactionItem(
+      id: 'tx7',
+      title: 'Chop Bar Lunch',
+      date: '4 days ago',
+      amount: 80.00,
+      isDeposit: false,
+      icon: Icons.restaurant_rounded,
+      method: 'Telecel Cash',
+      category: 'Food & Groceries',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs:
+          DateTime.now().subtract(const Duration(days: 4)).millisecondsSinceEpoch,
+    ),
+    TransactionItem(
+      id: 'tx8',
+      title: 'Water bill',
+      date: '5 days ago',
+      amount: 95.00,
+      isDeposit: false,
+      icon: Icons.water_drop_outlined,
+      method: 'MTN MoMo',
+      category: 'Utilities & Bills',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs:
+          DateTime.now().subtract(const Duration(days: 5)).millisecondsSinceEpoch,
+    ),
+    TransactionItem(
+      id: 'tx9',
+      title: 'Group contribution · Office Susu',
+      date: '6 days ago',
+      amount: 1000.00,
+      isDeposit: false,
+      icon: Icons.groups_rounded,
+      method: 'Susu Wallet',
+      category: 'Group Susu',
+      budgetPeriod: _periodKeyFor(DateTime.now()),
+      createdAtMs:
+          DateTime.now().subtract(const Duration(days: 6)).millisecondsSinceEpoch,
     ),
   ];
 
@@ -1465,6 +2107,8 @@ class AppState extends ChangeNotifier {
     for (final group in _groups) {
       group.ensureCollections();
     }
+    _recomputeBudgetSpent(notify: false, alert: false);
+    ensureBudgetModel();
     await simulateLoading();
   }
 
@@ -1516,6 +2160,8 @@ class AppState extends ChangeNotifier {
         isDeposit: true,
         icon: Icons.south_west_rounded,
         method: method,
+        category: 'Income',
+        budgetPeriod: currentBudgetPeriod,
       ),
     );
     _pushNotification(
@@ -1531,7 +2177,7 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
-  bool withdraw(double amount, String destination) {
+  bool withdraw(double amount, String destination, {String? category}) {
     if (amount <= 0) {
       lastError = 'Enter a valid withdrawal amount.';
       notifyListeners();
@@ -1542,6 +2188,8 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    final resolvedCategory =
+        category ?? suggestBudgetCategory('Withdrawal $destination');
     _totalBalance -= amount;
     _transactions.insert(
       0,
@@ -1553,6 +2201,8 @@ class AppState extends ChangeNotifier {
         isDeposit: false,
         icon: Icons.north_east_rounded,
         method: destination,
+        category: resolvedCategory,
+        budgetPeriod: currentBudgetPeriod,
       ),
     );
     _pushNotification(
@@ -1563,6 +2213,8 @@ class AppState extends ChangeNotifier {
       bgColor: const Color(0xFFE6F4FF),
       route: '/transactions',
     );
+    _recomputeBudgetSpent();
+    lastError = null;
     _persist();
     notifyListeners();
     return true;
@@ -1649,6 +2301,7 @@ class AppState extends ChangeNotifier {
         isDeposit: true,
         icon: Icons.north_east_rounded,
         method: 'Susu Wallet',
+        budgetPeriod: currentBudgetPeriod,
       ),
     );
 
@@ -1664,6 +2317,7 @@ class AppState extends ChangeNotifier {
           icon: Icons.gavel_rounded,
           method: 'Kwanpa Fee',
           category: 'Fees',
+          budgetPeriod: currentBudgetPeriod,
         ),
       );
       _pushNotification(
@@ -1688,6 +2342,7 @@ class AppState extends ChangeNotifier {
     }
 
     lastError = null;
+    _recomputeBudgetSpent();
     _persist();
     notifyListeners();
     return true;
@@ -1724,6 +2379,8 @@ class AppState extends ChangeNotifier {
         isDeposit: false,
         icon: Icons.savings_rounded,
         method: 'Susu Wallet',
+        category: 'Susu & Savings',
+        budgetPeriod: currentBudgetPeriod,
       ),
     );
 
@@ -1738,6 +2395,7 @@ class AppState extends ChangeNotifier {
       );
     }
 
+    _recomputeBudgetSpent();
     _persist();
     notifyListeners();
     return true;
@@ -1751,26 +2409,342 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void addBudgetCategory(String name, double total) {
+  void setMonthlyIncome(double amount) {
+    if (amount <= 0) {
+      lastError = 'Income must be greater than zero.';
+      notifyListeners();
+      return;
+    }
+    monthlyIncome = amount;
+    lastError = null;
+    _checkOverallBudgetAlerts();
+    _persist();
+    notifyListeners();
+  }
+
+  void openBudgetTab() {
+    pendingHomeTab = 1;
+    notifyListeners();
+  }
+
+  void openAnalyticsTab() {
+    pendingHomeTab = 3;
+    notifyListeners();
+  }
+
+  void openSavingsTab() {
+    pendingHomeTab = 2;
+    notifyListeners();
+  }
+
+  void clearPendingHomeTab() {
+    pendingHomeTab = null;
+  }
+
+  void startNewBudgetMonth() {
+    // Apply any leftovers queued for next month.
+    for (final entry in _pendingLimitCarry.entries) {
+      final cat = _budgetCategories.where((c) => c.id == entry.key).toList();
+      if (cat.isNotEmpty) {
+        cat.first.total += entry.value;
+      }
+    }
+    _pendingLimitCarry.clear();
+
+    currentBudgetPeriod = _periodKeyFor(DateTime.now());
+    _budgetAlertKeys.clear();
+    _recomputeBudgetSpent(alert: false);
+    _pushNotification(
+      title: 'New Budget Month',
+      subtitle: 'Tracking spending for $budgetPeriodLabel.',
+      icon: Icons.calendar_month_rounded,
+      color: const Color(0xFF006E0A),
+      bgColor: const Color(0xFFE8F8EA),
+      route: '/budget',
+    );
+    _persist();
+    notifyListeners();
+  }
+
+  /// Queue unused category limits to boost next month’s caps.
+  bool carryLeftoversToNextMonth() {
+    var moved = 0.0;
+    for (final c in _budgetCategories) {
+      if (c.isProtected) continue;
+      if (c.leftover <= 0) continue;
+      _pendingLimitCarry[c.id] = (_pendingLimitCarry[c.id] ?? 0) + c.leftover;
+      moved += c.leftover;
+    }
+    if (moved <= 0) {
+      lastError = 'No unused limits to carry forward.';
+      notifyListeners();
+      return false;
+    }
+    lastError = null;
+    _pushNotification(
+      title: 'Leftovers queued',
+      subtitle:
+          'GHS ${moved.toStringAsFixed(0)} will boost next month’s category limits.',
+      icon: Icons.next_plan_rounded,
+      color: const Color(0xFF0066CC),
+      bgColor: const Color(0xFFE6F4FF),
+      route: '/budget',
+    );
+    _persist();
+    notifyListeners();
+    return true;
+  }
+
+  /// Move unused non-protected limits into the Susu & Savings budget cap.
+  bool carryLeftoversToSavings() {
+    final susu = budgetCategoryByName('Susu & Savings');
+    if (susu == null) {
+      lastError = 'Susu & Savings category not found.';
+      notifyListeners();
+      return false;
+    }
+    var moved = 0.0;
+    for (final c in _budgetCategories) {
+      if (c.id == susu.id || c.isProtected) continue;
+      if (c.leftover <= 0) continue;
+      moved += c.leftover;
+      // Shrink discretionary room so the plan reflects the reallocation.
+      c.total = c.spent;
+    }
+    if (moved <= 0) {
+      lastError = 'No unused limits to move into savings.';
+      notifyListeners();
+      return false;
+    }
+    susu.total += moved;
+    lastError = null;
+    _pushNotification(
+      title: 'Leftovers → Savings',
+      subtitle:
+          'Moved GHS ${moved.toStringAsFixed(0)} of unused limits into Susu & Savings.',
+      icon: Icons.savings_rounded,
+      color: const Color(0xFF006E0A),
+      bgColor: const Color(0xFFE8F8EA),
+      route: '/budget',
+    );
+    _persist();
+    notifyListeners();
+    return true;
+  }
+
+  /// Log a cash / off-wallet expense into the budget.
+  bool addCashExpense({
+    required double amount,
+    required String category,
+    String note = '',
+  }) {
+    if (amount <= 0) {
+      lastError = 'Enter a valid amount.';
+      notifyListeners();
+      return false;
+    }
+    if (budgetCategoryByName(category) == null) {
+      lastError = 'Pick a budget category.';
+      notifyListeners();
+      return false;
+    }
+    final title = note.trim().isEmpty ? 'Cash expense' : note.trim();
+    _transactions.insert(
+      0,
+      TransactionItem(
+        id: 'tx_cash_${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        date: 'Just now',
+        amount: amount,
+        isDeposit: false,
+        icon: Icons.payments_outlined,
+        method: 'Cash',
+        category: category,
+        budgetPeriod: currentBudgetPeriod,
+      ),
+    );
+    lastError = null;
+    _recomputeBudgetSpent();
+    _persist();
+    notifyListeners();
+    return true;
+  }
+
+  String suggestBudgetCategory(String hint) {
+    final lower = hint.toLowerCase();
+    if (lower.contains('food') ||
+        lower.contains('grocery') ||
+        lower.contains('melcom') ||
+        lower.contains('chop') ||
+        lower.contains('restaurant')) {
+      return 'Food & Groceries';
+    }
+    if (lower.contains('fuel') ||
+        lower.contains('transport') ||
+        lower.contains('uber') ||
+        lower.contains('bolt') ||
+        lower.contains('trotro')) {
+      return 'Transport & Fuel';
+    }
+    if (lower.contains('ecg') ||
+        lower.contains('water') ||
+        lower.contains('bill') ||
+        lower.contains('utilit')) {
+      return 'Utilities & Bills';
+    }
+    if (lower.contains('group') || lower.contains('susu circle')) {
+      return 'Group Susu';
+    }
+    if (lower.contains('fee') || lower.contains('penalty')) {
+      return 'Fees';
+    }
+    if (lower.contains('save') ||
+        lower.contains('goal') ||
+        lower.contains('susu')) {
+      return 'Susu & Savings';
+    }
+    return 'Food & Groceries';
+  }
+
+  BudgetCategory? budgetCategoryByName(String name) {
+    final target = name.trim().toLowerCase();
+    try {
+      return _budgetCategories.firstWhere(
+        (c) => c.name.toLowerCase() == target,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _recomputeBudgetSpent({bool notify = true, bool alert = true}) {
+    final previous = {
+      for (final c in _budgetCategories) c.id: c.spent,
+    };
+    for (final c in _budgetCategories) {
+      c.spent = 0;
+    }
+    for (final tx in _transactions) {
+      if (tx.isDeposit) continue;
+      final cat = tx.category;
+      if (cat == null || cat.isEmpty || cat.toLowerCase() == 'income') {
+        continue;
+      }
+      if (tx.budgetPeriod != null && tx.budgetPeriod != currentBudgetPeriod) {
+        continue;
+      }
+      final match = budgetCategoryByName(cat);
+      if (match != null) {
+        match.spent += tx.amount;
+      }
+    }
+    if (alert) {
+      for (final c in _budgetCategories) {
+        final before = previous[c.id] ?? 0;
+        _maybeAlertCategory(c, before);
+      }
+      _checkOverallBudgetAlerts();
+    }
+    if (notify) notifyListeners();
+  }
+
+  void _maybeAlertCategory(BudgetCategory c, double previousSpent) {
+    final nearKey = '${currentBudgetPeriod}_${c.id}_near';
+    final overKey = '${currentBudgetPeriod}_${c.id}_over';
+    if (c.isOverBudget &&
+        previousSpent <= c.total &&
+        !_budgetAlertKeys.contains(overKey)) {
+      _budgetAlertKeys.add(overKey);
+      _pushNotification(
+        title: 'Over budget · ${c.name}',
+        subtitle:
+            'Spent GHS ${c.spent.toStringAsFixed(0)} of GHS ${c.total.toStringAsFixed(0)}.',
+        icon: Icons.warning_amber_rounded,
+        color: const Color(0xFFD32F2F),
+        bgColor: const Color(0xFFFFEBEE),
+        route: '/budget',
+      );
+    } else if (c.isNearLimit &&
+        previousSpent / (c.total == 0 ? 1 : c.total) < 0.8 &&
+        !_budgetAlertKeys.contains(nearKey)) {
+      _budgetAlertKeys.add(nearKey);
+      _pushNotification(
+        title: '80% used · ${c.name}',
+        subtitle:
+            'GHS ${c.remaining.clamp(0, double.infinity).toStringAsFixed(0)} left in this category.',
+        icon: Icons.pie_chart_rounded,
+        color: const Color(0xFFE65100),
+        bgColor: const Color(0xFFFFF3E0),
+        route: '/budget',
+      );
+    }
+  }
+
+  void _checkOverallBudgetAlerts() {
+    final overKey = '${currentBudgetPeriod}_overall_over';
+    final nearKey = '${currentBudgetPeriod}_overall_near';
+    if (isOverBudget && !_budgetAlertKeys.contains(overKey)) {
+      _budgetAlertKeys.add(overKey);
+      _pushNotification(
+        title: 'Monthly budget exceeded',
+        subtitle:
+            'Expenses GHS ${totalExpenses.toStringAsFixed(0)} vs income GHS ${monthlyIncome.toStringAsFixed(0)}.',
+        icon: Icons.account_balance_wallet_rounded,
+        color: const Color(0xFFD32F2F),
+        bgColor: const Color(0xFFFFEBEE),
+        route: '/budget',
+      );
+    } else if (budgetUsedRatio >= 0.8 &&
+        !isOverBudget &&
+        !_budgetAlertKeys.contains(nearKey)) {
+      _budgetAlertKeys.add(nearKey);
+      _pushNotification(
+        title: 'Budget nearly used',
+        subtitle:
+            '${(budgetUsedRatio * 100).toStringAsFixed(0)}% of your monthly income is spent.',
+        icon: Icons.savings_outlined,
+        color: const Color(0xFFE65100),
+        bgColor: const Color(0xFFFFF3E0),
+        route: '/budget',
+      );
+    }
+  }
+
+  void addBudgetCategory(
+    String name,
+    double total, {
+    IconData? icon,
+    Color? color,
+    bool isProtected = false,
+  }) {
     _budgetCategories.add(
       BudgetCategory(
         id: 'b_${DateTime.now().millisecondsSinceEpoch}',
         name: name,
         spent: 0,
         total: total,
-        icon: Icons.category_rounded,
-        color: const Color(0xFF00730B),
+        icon: icon ?? Icons.category_rounded,
+        color: color ?? const Color(0xFF00730B),
+        isProtected: isProtected,
       ),
     );
+    _recomputeBudgetSpent(notify: false, alert: false);
     _persist();
     notifyListeners();
   }
 
-  void updateBudgetCategory(String id, {String? name, double? total}) {
+  void updateBudgetCategory(
+    String id, {
+    String? name,
+    double? total,
+    bool? isProtected,
+  }) {
     final i = _budgetCategories.indexWhere((c) => c.id == id);
     if (i == -1) return;
     if (name != null) _budgetCategories[i].name = name;
     if (total != null) _budgetCategories[i].total = total;
+    if (isProtected != null) _budgetCategories[i].isProtected = isProtected;
+    _recomputeBudgetSpent(notify: false, alert: false);
     _persist();
     notifyListeners();
   }
@@ -1859,13 +2833,124 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateProfile({String? name, String? phoneNumber}) {
+  void updateProfile({
+    String? name,
+    String? phoneNumber,
+    String? emailAddress,
+    String? idNumber,
+    String? dob,
+  }) {
     if (name != null && name.trim().isNotEmpty) fullName = name.trim();
     if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
       phone = phoneNumber.trim();
     }
+    if (emailAddress != null) email = emailAddress.trim();
+    if (idNumber != null) {
+      final next = idNumber.trim();
+      if (next != ghanaCardId && kycStatus == 'verified') {
+        // Changing Ghana Card after verify requires re-check.
+        kycStatus = 'unverified';
+        kycVerifiedAt = null;
+      }
+      ghanaCardId = next;
+    }
+    if (dob != null) dateOfBirth = dob.trim();
     _persist();
     notifyListeners();
+  }
+
+  bool get isKycVerified => kycStatus == 'verified';
+  bool get isKycPending => kycStatus == 'pending';
+
+  String get kycStatusLabel {
+    switch (kycStatus) {
+      case 'verified':
+        return 'Ghana Card verified';
+      case 'pending':
+        return 'Verification pending';
+      case 'failed':
+        return 'Verification failed';
+      default:
+        return 'Ghana Card not verified';
+    }
+  }
+
+  /// Ghana Card format: GHA-#########-#
+  static final RegExp ghanaCardPattern =
+      RegExp(r'^GHA-\d{9}-\d$', caseSensitive: false);
+
+  bool isValidGhanaCardFormat(String value) =>
+      ghanaCardPattern.hasMatch(value.trim().toUpperCase());
+
+  /// Frontend-only demo submit. Backend will replace with NIA / KYC API.
+  Future<bool> submitGhanaCardVerification({
+    required String cardNumber,
+    required String name,
+    required String dob,
+    bool selfieCaptured = false,
+  }) async {
+    final card = cardNumber.trim().toUpperCase();
+    if (!isValidGhanaCardFormat(card)) {
+      lastError =
+          'Enter a valid Ghana Card number (e.g. GHA-123456789-0).';
+      notifyListeners();
+      return false;
+    }
+    if (name.trim().isEmpty) {
+      lastError = 'Full name is required.';
+      notifyListeners();
+      return false;
+    }
+    if (dob.trim().isEmpty) {
+      lastError = 'Date of birth is required.';
+      notifyListeners();
+      return false;
+    }
+    if (!selfieCaptured) {
+      lastError = 'Capture a selfie to continue verification.';
+      notifyListeners();
+      return false;
+    }
+
+    ghanaCardId = card;
+    fullName = name.trim();
+    dateOfBirth = dob.trim();
+    kycStatus = 'pending';
+    kycFailReason = null;
+    lastError = null;
+    _persist();
+    notifyListeners();
+
+    // Simulate backend / NIA round-trip for UI demo.
+    await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+    // Demo rule: cards ending in -0 fail so both outcomes can be tested.
+    if (card.endsWith('-0')) {
+      kycStatus = 'failed';
+      kycFailReason =
+          'Details did not match NIA records. Check your Ghana Card and try again.';
+      lastError = kycFailReason;
+      _persist();
+      notifyListeners();
+      return false;
+    }
+
+    kycStatus = 'verified';
+    kycVerifiedAt = DateTime.now().toIso8601String();
+    kycFailReason = null;
+    lastError = null;
+    _persist();
+    notifyListeners();
+    return true;
+  }
+
+  void clearKycFailure() {
+    if (kycStatus == 'failed') {
+      kycStatus = 'unverified';
+      kycFailReason = null;
+      _persist();
+      notifyListeners();
+    }
   }
 
   bool verifyPin(String entered) => entered == pin;
@@ -1908,6 +2993,7 @@ class AppState extends ChangeNotifier {
 
   void setAnalyticsWeekly(bool weekly) {
     analyticsWeekly = weekly;
+    _persist();
     notifyListeners();
   }
 
@@ -2035,6 +3121,8 @@ class AppState extends ChangeNotifier {
         isDeposit: false,
         icon: Icons.groups_rounded,
         method: 'Susu Wallet',
+        category: 'Group Susu',
+        budgetPeriod: currentBudgetPeriod,
       ),
     );
     group.messages.insert(
@@ -2070,6 +3158,7 @@ class AppState extends ChangeNotifier {
       routeArgs: group.id,
     );
     lastError = null;
+    _recomputeBudgetSpent();
     _persist();
     notifyListeners();
     return true;
@@ -2811,6 +3900,12 @@ class AppState extends ChangeNotifier {
       final payload = {
         'fullName': fullName,
         'phone': phone,
+        'email': email,
+        'ghanaCardId': ghanaCardId,
+        'dateOfBirth': dateOfBirth,
+        'kycStatus': kycStatus,
+        'kycVerifiedAt': kycVerifiedAt,
+        'kycFailReason': kycFailReason,
         'pin': pin,
         'biometricEnabled': biometricEnabled,
         'twoFactorEnabled': twoFactorEnabled,
@@ -2819,6 +3914,11 @@ class AppState extends ChangeNotifier {
         'isAuthenticated': isAuthenticated,
         'totalBalance': _totalBalance,
         'monthlyIncome': monthlyIncome,
+        'currentBudgetPeriod': currentBudgetPeriod,
+        'budgetAlertKeys': _budgetAlertKeys.toList(),
+        'budgetShowWeekly': budgetShowWeekly,
+        'analyticsWeekly': analyticsWeekly,
+        'pendingLimitCarry': _pendingLimitCarry,
         'goals': _goals.map((g) => g.toJson()).toList(),
         'transactions': _transactions.map((t) => t.toJson()).toList(),
         'budgetCategories': _budgetCategories.map((b) => b.toJson()).toList(),
@@ -2841,6 +3941,10 @@ class AppState extends ChangeNotifier {
       await prefs.remove('kwanpa_susu_state_v3');
       await prefs.remove('kwanpa_susu_state_v4');
       await prefs.remove('kwanpa_susu_state_v5');
+      await prefs.remove('kwanpa_susu_state_v6');
+      await prefs.remove('kwanpa_susu_state_v7');
+      await prefs.remove('kwanpa_susu_state_v8');
+      await prefs.remove('kwanpa_susu_state_v9');
 
       final raw = prefs.getString(_storageKey);
       if (raw == null) return;
@@ -2848,6 +3952,12 @@ class AppState extends ChangeNotifier {
 
       fullName = data['fullName'] as String? ?? fullName;
       phone = data['phone'] as String? ?? phone;
+      email = data['email'] as String? ?? email;
+      ghanaCardId = data['ghanaCardId'] as String? ?? ghanaCardId;
+      dateOfBirth = data['dateOfBirth'] as String? ?? dateOfBirth;
+      kycStatus = data['kycStatus'] as String? ?? kycStatus;
+      kycVerifiedAt = data['kycVerifiedAt'] as String?;
+      kycFailReason = data['kycFailReason'] as String?;
       pin = data['pin'] as String? ?? pin;
       biometricEnabled = data['biometricEnabled'] as bool? ?? biometricEnabled;
       twoFactorEnabled = data['twoFactorEnabled'] as bool? ?? twoFactorEnabled;
@@ -2859,6 +3969,24 @@ class AppState extends ChangeNotifier {
           (data['totalBalance'] as num?)?.toDouble() ?? _totalBalance;
       monthlyIncome =
           (data['monthlyIncome'] as num?)?.toDouble() ?? monthlyIncome;
+      currentBudgetPeriod =
+          data['currentBudgetPeriod'] as String? ?? currentBudgetPeriod;
+      if (data['budgetAlertKeys'] is List) {
+        _budgetAlertKeys
+          ..clear()
+          ..addAll((data['budgetAlertKeys'] as List).map((e) => e.toString()));
+      }
+      budgetShowWeekly = data['budgetShowWeekly'] as bool? ?? budgetShowWeekly;
+      analyticsWeekly = data['analyticsWeekly'] as bool? ?? analyticsWeekly;
+      if (data['pendingLimitCarry'] is Map) {
+        _pendingLimitCarry
+          ..clear()
+          ..addAll(
+            (data['pendingLimitCarry'] as Map).map(
+              (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+            ),
+          );
+      }
 
       if (data['goals'] is List) {
         _goals

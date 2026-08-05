@@ -101,14 +101,23 @@ class _SetNewPinScreenState extends State<SetNewPinScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pushNamedAndRemoveUntil('/signin', (route) => false);
+                Navigator.of(context).pop();
+                if (AppState().isAuthenticated) {
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/home', (route) => false);
+                } else {
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/signin', (route) => false);
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.darkGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('Back to Sign In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text(
+                AppState().isAuthenticated ? 'Back to Home' : 'Back to Sign In',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],

@@ -34,7 +34,10 @@ class _ResetPinScreenState extends State<ResetPinScreen> {
     if (_formKey.currentState!.validate()) {
       Navigator.of(context).pushNamed(
         '/verify',
-        arguments: '$_selectedCountryCode ${_phoneController.text}',
+        arguments: {
+          'phone': '$_selectedCountryCode ${_phoneController.text}',
+          'purpose': 'reset_pin',
+        },
       );
     }
   }

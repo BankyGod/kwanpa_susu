@@ -90,7 +90,14 @@ class GoalDetailScreen extends StatelessWidget {
                     }
                     final updated = AppState().goalById(goal.id);
                     if (updated != null && updated.isAchieved) {
-                      Navigator.of(context).pushReplacementNamed('/goal_achieved');
+                      Navigator.of(context).pushReplacementNamed(
+                        '/goal_achieved',
+                        arguments: {
+                          'title': updated.title,
+                          'amount': updated.targetAmount,
+                          'date': 'Today',
+                        },
+                      );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -377,8 +384,14 @@ class GoalDetailScreen extends StatelessWidget {
                         height: 54,
                         child: ElevatedButton(
                           onPressed: goal.isAchieved
-                              ? () => Navigator.of(context)
-                                  .pushNamed('/goal_achieved')
+                              ? () => Navigator.of(context).pushNamed(
+                                    '/goal_achieved',
+                                    arguments: {
+                                      'title': goal.title,
+                                      'amount': goal.targetAmount,
+                                      'date': 'Today',
+                                    },
+                                  )
                               : () => _contribute(context, goal),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.vibrantGreen,

@@ -11,37 +11,40 @@ class DepositScreen extends StatefulWidget {
 }
 
 class _DepositScreenState extends State<DepositScreen> {
-  final TextEditingController _amountController = TextEditingController(text: '100.00');
-  String _selectedMethod = 'MTN MoMo';
+  final TextEditingController _amountController =
+      TextEditingController(text: '100.00');
+  String? _selectedMethodId;
 
-  final List<Map<String, dynamic>> _paymentMethods = [
-    {
-      'id': 'mtn',
-      'name': 'MTN MoMo',
-      'number': '024 *** ****',
-      'fullNumber': 'MTN (024 *** 4587)',
-      'icon': Icons.smartphone_rounded,
-    },
-    {
-      'id': 'telecel',
-      'name': 'Telecel Cash',
-      'number': 'Add new number',
-      'fullNumber': 'Telecel Cash',
-      'icon': Icons.smartphone_outlined,
-    },
-    {
-      'id': 'bank',
-      'name': 'Bank Account',
-      'number': 'Link your bank',
-      'fullNumber': 'Bank Account',
-      'icon': Icons.account_balance_outlined,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final methods = AppState().paymentMethods;
+    final primary = AppState().primaryPaymentMethod;
+    _selectedMethodId = primary?.id ??
+        (methods.isNotEmpty ? methods.first.id : null);
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
 
   void _addQuickAmount(double amount) {
+    final current = double.tryParse(_amountController.text.trim()) ?? 0;
     setState(() {
-      _amountController.text = amount.toStringAsFixed(2);
+      _amountController.text = (current + amount).toStringAsFixed(2);
     });
+  }
+
+  PaymentMethod? get _selectedMethod {
+    final id = _selectedMethodId;
+    if (id == null) return null;
+    try {
+      return AppState().paymentMethods.firstWhere((m) => m.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _processDeposit() {
@@ -61,25 +64,35 @@ class _DepositScreenState extends State<DepositScreen> {
       return;
     }
 
-    final ok = AppState().deposit(amount, _selectedMethod);
-    if (!ok) {
+    final method = _selectedMethod;
+    if (method == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppState().lastError ?? 'Deposit failed')),
+        const SnackBar(content: Text('Add a payment method first')),
       );
       return;
     }
 
-    final primary = AppState().primaryPaymentMethod;
-    final source = primary != null
-        ? '$_selectedMethod (${primary.maskedNumber})'
-        : _selectedMethod;
+    final label = '${method.name} (${method.maskedNumber})';
+    final ok = AppState().deposit(amount, label);
+    if (!ok) {
+      Navigator.of(context).pushReplacementNamed(
+        '/deposit_error',
+        arguments: {
+          'amount': amount,
+          'source': label,
+          'message': AppState().lastError ?? 'Deposit could not be completed.',
+        },
+      );
+      return;
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => DepositSuccessScreen(
           amount: amount,
-          sourceAccount: source,
-          transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
+          sourceAccount: label,
+          transactionId:
+              'TXN-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
           dateTimeStr: 'Today, ${TimeOfDay.now().format(context)}',
           newBalance: AppState().totalBalance,
         ),
@@ -89,11 +102,11 @@ class _DepositScreenState extends State<DepositScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedMethodObj = _paymentMethods.firstWhere(
-      (element) => element['name'] == _selectedMethod,
-      orElse: () => _paymentMethods.first,
-    );
-
+    final methods = AppState().paymentMethods;
+    final selected = _selectedMethod;
+    final sourceLabel = selected != null
+        ? '${selected.name} (${selected.maskedNumber})'
+        : 'No payment method';
     final currentAmount = double.tryParse(_amountController.text) ?? 100.00;
 
     return Scaffold(
@@ -214,7 +227,18 @@ class _DepositScreenState extends State<DepositScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    ..._paymentMethods.map((method) => _buildPaymentMethodCard(method)),
+                    if (methods.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: TextButton.icon(
+                          onPressed: () =>
+                              Navigator.of(context).pushNamed('/payment_methods'),
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Add a payment method'),
+                        ),
+                      )
+                    else
+                      ...methods.map((method) => _buildPaymentMethodCard(method)),
 
                     const SizedBox(height: 24),
 
@@ -253,9 +277,11 @@ class _DepositScreenState extends State<DepositScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          _buildSummaryRow('Source Account', selectedMethodObj['fullNumber']!),
+                          _buildSummaryRow('Source Account', sourceLabel),
                           const SizedBox(height: 10),
-                          _buildSummaryRow('Deposit Amount', 'GHS ${currentAmount.toStringAsFixed(2)}'),
+                          _buildSummaryRow(
+                              'Deposit Amount',
+                              'GHS ${currentAmount.toStringAsFixed(2)}'),
                           const SizedBox(height: 10),
                           _buildSummaryRow('Network Fee', 'Free', valueColor: AppColors.forestGreen),
 
@@ -382,13 +408,16 @@ class _DepositScreenState extends State<DepositScreen> {
     );
   }
 
-  Widget _buildPaymentMethodCard(Map<String, dynamic> method) {
-    final bool isSelected = _selectedMethod == method['name'];
+  Widget _buildPaymentMethodCard(PaymentMethod method) {
+    final bool isSelected = _selectedMethodId == method.id;
+    final icon = method.type == 'bank'
+        ? Icons.account_balance_outlined
+        : Icons.smartphone_rounded;
 
     return GestureDetector(
       onTap: () {
         setState(() {
-          _selectedMethod = method['name']!;
+          _selectedMethodId = method.id;
         });
       },
       child: Container(
@@ -398,7 +427,9 @@ class _DepositScreenState extends State<DepositScreen> {
           color: isSelected ? const Color(0xFFEDF2F0) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.darkGreen : AppColors.notchColor.withValues(alpha: 0.3),
+            color: isSelected
+                ? AppColors.darkGreen
+                : AppColors.notchColor.withValues(alpha: 0.3),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -412,8 +443,9 @@ class _DepositScreenState extends State<DepositScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                method['icon'] as IconData,
-                color: isSelected ? AppColors.vibrantGreen : AppColors.darkGreen,
+                icon,
+                color:
+                    isSelected ? AppColors.vibrantGreen : AppColors.darkGreen,
                 size: 20,
               ),
             ),
@@ -423,7 +455,7 @@ class _DepositScreenState extends State<DepositScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    method['name'] as String,
+                    method.name,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -432,7 +464,7 @@ class _DepositScreenState extends State<DepositScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    method['number'] as String,
+                    method.maskedNumber,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -442,8 +474,11 @@ class _DepositScreenState extends State<DepositScreen> {
               ),
             ),
             Icon(
-              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: isSelected ? AppColors.darkGreen : AppColors.textSecondary,
+              isSelected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              color:
+                  isSelected ? AppColors.darkGreen : AppColors.textSecondary,
               size: 22,
             ),
           ],

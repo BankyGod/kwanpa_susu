@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../widgets/kyc_gate.dart';
 import '../../widgets/activity_row.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/shimmer_loader.dart';
@@ -101,7 +102,15 @@ class HomeDashboardTab extends StatelessWidget {
                       icon: Icons.north_rounded,
                       label: 'Withdraw',
                       primary: false,
-                      onTap: () => Navigator.of(context).pushNamed('/withdraw'),
+                      onTap: () async {
+                        final ok = await ensureKycVerified(
+                          context,
+                          actionLabel: 'withdraw',
+                        );
+                        if (ok && context.mounted) {
+                          Navigator.of(context).pushNamed('/withdraw');
+                        }
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -118,6 +127,8 @@ class HomeDashboardTab extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               _budgetCard(context, state),
+              const SizedBox(height: 16),
+              _analyticsCard(context, state),
               const SizedBox(height: 24),
               _recentActivityCard(context, state),
               const SizedBox(height: 12),
@@ -257,92 +268,196 @@ class HomeDashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _budgetCard(BuildContext context, AppState state) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
+  Widget _analyticsCard(BuildContext context, AppState state) {
+    final change = state.spendChangePercent;
+    final spentLess = change != null && change >= 0;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.notchColor.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        onTap: () => AppState().openAnalyticsTab(),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: AppColors.notchColor.withValues(alpha: 0.3)),
+          ),
+          child: Row(
             children: [
-              const Text(
-                'Active Budget',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkGreen,
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.vibrantGreen.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.insights_rounded,
+                    color: AppColors.darkGreen),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Analytics',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      change == null
+                          ? 'Spent GHS ${state.thisWeekSpending.toStringAsFixed(0)} this week · open trends'
+                          : spentLess
+                              ? '${change.abs().toStringAsFixed(0)}% less than last week · GHS ${state.thisWeekSpending.toStringAsFixed(0)}'
+                              : '${change.abs().toStringAsFixed(0)}% more than last week · GHS ${state.thisWeekSpending.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              GestureDetector(
-                onTap: () {},
-                child: const Icon(Icons.info_outline_rounded,
-                    size: 20, color: AppColors.textSecondary),
-              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Monthly Budget: ${(state.budgetUsedPercent * 100).toInt()}% used',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: state.budgetUsedPercent,
-              minHeight: 8,
-              backgroundColor: const Color(0xFFE0E0E0),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.vibrantGreen),
+        ),
+      ),
+    );
+  }
+
+  Widget _budgetCard(BuildContext context, AppState state) {
+    final over = state.isOverBudget;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => AppState().openBudgetTab(),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: over
+                  ? const Color(0xFFD32F2F).withValues(alpha: 0.35)
+                  : AppColors.notchColor.withValues(alpha: 0.3),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Spent',
-                      style: TextStyle(
-                          fontSize: 11, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'GHS ${state.totalExpenses.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontSize: 14,
+                  const Text(
+                    'Active Budget',
+                    style: TextStyle(
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.darkGreen,
                     ),
                   ),
+                  Row(
+                    children: [
+                      if (over)
+                        Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFCDD2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'Over',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFC62828),
+                            ),
+                          ),
+                        ),
+                      const Icon(Icons.chevron_right_rounded,
+                          size: 22, color: AppColors.textSecondary),
+                    ],
+                  ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              const SizedBox(height: 6),
+              Text(
+                '${state.budgetPeriodLabel} · ${(state.budgetUsedRatio * 100).clamp(0, 999).toStringAsFixed(0)}% of income used',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: state.budgetUsedPercent,
+                  minHeight: 8,
+                  backgroundColor: const Color(0xFFE0E0E0),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    over ? const Color(0xFFD32F2F) : AppColors.vibrantGreen,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Remaining',
-                      style: TextStyle(
-                          fontSize: 11, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'GHS ${state.remainingBudget.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.darkGreen,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Spent',
+                          style: TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'GHS ${state.totalExpenses.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: over
+                              ? const Color(0xFFD32F2F)
+                              : AppColors.darkGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(over ? 'Over by' : 'Remaining',
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        over
+                            ? 'GHS ${(-state.remainingBudget).toStringAsFixed(0)}'
+                            : 'GHS ${state.remainingBudget.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: over
+                              ? const Color(0xFFD32F2F)
+                              : AppColors.darkGreen,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -1,9 +1,80 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../widgets/activity_row.dart';
 
 class AnalyticsTab extends StatelessWidget {
   const AnalyticsTab({super.key});
+
+  void _showTxSheet(
+    BuildContext context, {
+    required String title,
+    required List<TransactionItem> items,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0E0E0),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkGreen,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 28),
+                    child: Center(
+                      child: Text(
+                        'No spending in this period.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.45,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) => ActivityRow(item: items[i]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,185 +82,166 @@ class AnalyticsTab extends StatelessWidget {
       listenable: AppState(),
       builder: (context, _) {
         final state = AppState();
-        final factors = state.analyticsWeekly
-            ? state.weeklySpendFactors
-            : state.monthlySpendFactors;
-        final labels = state.analyticsWeekly
-            ? const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-            : const [
-                'J',
-                'F',
-                'M',
-                'A',
-                'M',
-                'J',
-                'J',
-                'A',
-                'S',
-                'O',
-                'N',
-                'D'
-              ];
-        final highlightIndex = factors.indexOf(
-          factors.reduce((a, b) => a > b ? a : b),
-        );
+        final amounts = state.activeSpendingAmounts;
+        final labels = state.activeSpendingLabels;
+        final maxAmount = amounts.fold<double>(0, (a, b) => a > b ? a : b);
+        final highlightIndex =
+            maxAmount <= 0 ? -1 : amounts.indexOf(maxAmount);
+        final change = state.spendChangePercent;
+        final spentLess = change != null && change >= 0;
+        final goal = state.primaryActiveGoal;
+        final topCategories = state.spendingCategoryBreakdown.take(3).toList();
+        final period = state.analyticsWeekly ? 'week' : 'month';
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.darkGreen, AppColors.cardGradientEnd],
-                  ),
-                ),
-                child: const Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: AppColors.vibrantGreen,
-                      child: Icon(Icons.electric_bolt_rounded,
-                          color: AppColors.darkGreenAccent, size: 32),
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      'The Impulse Saver',
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Analytics',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppColors.darkGreen,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'You tend to save in bursts! Harness this energy to hit your goals faster.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFFA3B3A9),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: AppColors.notchColor.withValues(alpha: 0.3),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F6F5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
                       children: [
-                        const Text(
-                          'Spending Trends',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.darkGreen,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF4F6F5),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            children: [
-                              _toggleChip(
-                                'Weekly',
-                                selected: state.analyticsWeekly,
-                                onTap: () => state.setAnalyticsWeekly(true),
-                              ),
-                              _toggleChip(
-                                'Monthly',
-                                selected: !state.analyticsWeekly,
-                                onTap: () => state.setAnalyticsWeekly(false),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _chip('Week', state.analyticsWeekly,
+                            () => state.setAnalyticsWeekly(true)),
+                        _chip('Month', !state.analyticsWeekly,
+                            () => state.setAnalyticsWeekly(false)),
                       ],
                     ),
-                    const SizedBox(height: 28),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: List.generate(factors.length, (i) {
-                        return _bar(
-                          labels[i],
-                          factors[i],
-                          highlighted: i == highlightIndex,
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1, color: Color(0xFFEEEEEE)),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF4F6F5),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.trending_down_rounded,
-                              color: AppColors.forestGreen, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text.rich(
-                              TextSpan(
-                                text: state.analyticsWeekly
-                                    ? 'You spent '
-                                    : 'This month you spent ',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
-                                children: const [
-                                  TextSpan(
-                                    text: '15% less',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.forestGreen,
-                                    ),
-                                  ),
-                                  TextSpan(text: ' than last period.'),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                state.analyticsPersonaTitle,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Core answers: spent / saved / compare
               Container(
-                padding: const EdgeInsets.all(20),
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.notchColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _kpi(
+                            'Spent',
+                            'GHS ${state.periodSpending.toStringAsFixed(0)}',
+                            const Color(0xFFE65100),
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 40,
+                          color: AppColors.notchColor.withValues(alpha: 0.4),
+                        ),
+                        Expanded(
+                          child: _kpi(
+                            'Saved',
+                            'GHS ${state.periodSavings.toStringAsFixed(0)}',
+                            AppColors.forestGreen,
+                          ),
+                        ),
+                        if (!state.analyticsWeekly) ...[
+                          Container(
+                            width: 1,
+                            height: 40,
+                            color: AppColors.notchColor.withValues(alpha: 0.4),
+                          ),
+                          Expanded(
+                            child: _kpi(
+                              'Of income',
+                              '${(state.savingsVsIncomeRate * 100).toStringAsFixed(0)}%',
+                              const Color(0xFF0066CC),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F9F8),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            change == null
+                                ? Icons.info_outline_rounded
+                                : spentLess
+                                    ? Icons.trending_down_rounded
+                                    : Icons.trending_up_rounded,
+                            size: 18,
+                            color: change == null
+                                ? AppColors.textSecondary
+                                : spentLess
+                                    ? AppColors.forestGreen
+                                    : const Color(0xFFD32F2F),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              change == null
+                                  ? 'Need more history to compare periods.'
+                                  : spentLess
+                                      ? '${change.abs().toStringAsFixed(0)}% less than last $period'
+                                      : '${change.abs().toStringAsFixed(0)}% more than last $period',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.darkGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Chart
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: AppColors.notchColor.withValues(alpha: 0.3),
                   ),
@@ -197,134 +249,224 @@ class AnalyticsTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.lightbulb_outlined,
-                            color: AppColors.forestGreen, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'SMART TIP',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.darkGreen,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text.rich(
-                      TextSpan(
-                        text: 'Save ',
-                        style: const TextStyle(
-                            fontSize: 14, color: AppColors.darkGreen),
-                        children: [
-                          TextSpan(
-                            text:
-                                'GHS ${state.goals.isNotEmpty ? state.goals.first.autoSaveAmount.toStringAsFixed(0) : '50'}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.forestGreen,
-                            ),
-                          ),
-                          const TextSpan(
-                              text: ' more this week to reach your goal early!'),
-                        ],
+                    const Text(
+                      'Spending',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkGreen,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Tap a bar to see transactions',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    if (!state.hasAnalyticsSpendData)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: Text(
+                            'No spending yet this period.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        ),
+                      )
+                    else
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: List.generate(amounts.length, (i) {
+                          final factor =
+                              maxAmount <= 0 ? 0.0 : amounts[i] / maxAmount;
+                          return GestureDetector(
+                            onTap: () => _showTxSheet(
+                              context,
+                              title: '${labels[i]} · GHS ${amounts[i].toStringAsFixed(0)}',
+                              items: state.spendingTransactionsForBucket(i),
+                            ),
+                            child: _bar(
+                              labels[i],
+                              factor.clamp(0.08, 1.0),
+                              highlighted: i == highlightIndex,
+                            ),
+                          );
+                        }),
+                      ),
+                  ],
+                ),
+              ),
+
+              // Top categories only (max 3)
+              if (topCategories.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.notchColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Top categories',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.darkGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...topCategories.map((row) {
+                        return InkWell(
+                          onTap: () => _showTxSheet(
+                            context,
+                            title: row.name,
+                            items: state
+                                .spendingTransactionsForCategory(row.name),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Icon(row.icon, size: 18, color: row.color),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    row.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.darkGreen,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  'GHS ${row.amount.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.darkGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+
+              // One tip + one action
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F8EA),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      state.analyticsSmartTip,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.darkGreen,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      height: 48,
+                      height: 46,
                       child: ElevatedButton(
-                        onPressed: () =>
-                            Navigator.of(context).pushNamed('/deposit'),
+                        onPressed: () {
+                          if (goal != null) {
+                            Navigator.of(context).pushNamed(
+                              '/goal_detail',
+                              arguments: goal.id,
+                            );
+                          } else {
+                            AppState().openSavingsTab();
+                          }
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.vibrantGreen,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Move to Savings',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.darkGreenAccent,
-                              ),
-                            ),
-                            SizedBox(width: 6),
-                            Icon(Icons.arrow_forward_rounded,
-                                color: AppColors.darkGreenAccent, size: 18),
-                          ],
+                        child: Text(
+                          goal != null ? 'Open goal' : 'Go to Savings',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.darkGreenAccent,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              if (state.budgetCategories.any((c) => c.isOverBudget || c.progress > 0.8))
-                ...state.budgetCategories
-                    .where((c) => c.isOverBudget || c.progress > 0.8)
-                    .take(1)
-                    .map(
-                      (c) => Container(
-                        padding: const EdgeInsets.all(18),
+
+              // At most one budget alert
+              if (state.budgetCategories
+                  .any((c) => c.isOverBudget || c.isNearLimit)) ...[
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (_) {
+                    final c = state.budgetCategories.firstWhere(
+                      (x) => x.isOverBudget || x.isNearLimit,
+                    );
+                    return InkWell(
+                      onTap: () => AppState().openBudgetTab(),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: AppColors.notchColor.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: c.color.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(c.icon, color: c.color, size: 22),
-                            ),
-                            const SizedBox(width: 14),
+                            Icon(c.icon, color: c.color, size: 20),
+                            const SizedBox(width: 10),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    c.name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.darkGreen,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    c.isOverBudget
-                                        ? 'This category is over budget. Consider cutting back this week.'
-                                        : 'This category is higher than usual. Consider adjusting soon.',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                c.isOverBudget
+                                    ? '${c.name} is over budget'
+                                    : '${c.name} is near its limit',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.darkGreen,
+                                ),
                               ),
                             ),
+                            const Icon(Icons.chevron_right_rounded,
+                                color: AppColors.textSecondary),
                           ],
                         ),
                       ),
-                    ),
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         );
@@ -332,8 +474,26 @@ class AnalyticsTab extends StatelessWidget {
     );
   }
 
-  Widget _toggleChip(String label,
-      {required bool selected, required VoidCallback onTap}) {
+  Widget _kpi(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12, color: AppColors.textSecondary)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -341,14 +501,6 @@ class AnalyticsTab extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                  ),
-                ]
-              : null,
         ),
         child: Text(
           label,
@@ -366,8 +518,8 @@ class AnalyticsTab extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 14,
-          height: 70 * factor,
+          width: 16,
+          height: 64 * factor,
           decoration: BoxDecoration(
             color: highlighted
                 ? AppColors.vibrantGreen
@@ -379,7 +531,7 @@ class AnalyticsTab extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: highlighted ? FontWeight.bold : FontWeight.w500,
             color: highlighted ? AppColors.darkGreen : AppColors.textSecondary,
           ),

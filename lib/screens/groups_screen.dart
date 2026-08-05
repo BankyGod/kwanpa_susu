@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/shimmer_loader.dart';
+import '../widgets/kyc_gate.dart';
 
 enum _GroupFilter { active, admin, archived }
 
@@ -56,7 +57,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  void _showCreateGroupSheet() {
+  void _showCreateGroupSheet() async {
+    final allowed = await ensureKycVerified(
+      context,
+      actionLabel: 'create a Group Susu',
+    );
+    if (!allowed || !mounted) return;
+
     final nameController = TextEditingController();
     final amountController = TextEditingController(text: '100.00');
     String frequency = 'Weekly';
@@ -180,7 +187,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  void _showJoinSheet() {
+  void _showJoinSheet() async {
+    final allowed = await ensureKycVerified(
+      context,
+      actionLabel: 'join a Group Susu',
+    );
+    if (!allowed || !mounted) return;
+
     final codeController = TextEditingController();
     showModalBottomSheet(
       context: context,

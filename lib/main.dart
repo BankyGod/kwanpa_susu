@@ -28,6 +28,7 @@ import 'screens/goal_achieved_screen.dart';
 import 'screens/transaction_history_screen.dart';
 import 'screens/groups_screen.dart';
 import 'screens/group_detail_screen.dart';
+import 'screens/verify_ghana_card_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,14 +65,70 @@ class KwanpaSusuApp extends StatelessWidget {
             page = const SetNewPinScreen();
             break;
           case '/verify':
-            final phone = settings.arguments as String? ?? '+233 54 123 4567';
-            page = NumberVerificationScreen(phoneNumber: phone);
+            String phone = '+233 54 123 4567';
+            String purpose = 'signup';
+            final args = settings.arguments;
+            if (args is Map) {
+              phone = args['phone'] as String? ?? phone;
+              purpose = args['purpose'] as String? ?? purpose;
+            } else if (args is String) {
+              phone = args;
+            }
+            page = NumberVerificationScreen(
+              phoneNumber: phone,
+              purpose: purpose,
+            );
             break;
           case '/home':
             page = const HomeScreen();
             break;
+          case '/goal_achieved':
+            final args = settings.arguments;
+            if (args is Map) {
+              page = GoalAchievedScreen(
+                goalTitle: args['title'] as String? ?? 'Savings Goal',
+                targetAmount:
+                    (args['amount'] as num?)?.toDouble() ?? 0,
+                achievedDate: args['date'] as String? ?? 'Today',
+              );
+            } else {
+              page = const GoalAchievedScreen();
+            }
+            break;
+          case '/deposit_error':
+            final args = settings.arguments;
+            if (args is Map) {
+              page = DepositErrorScreen(
+                amount: (args['amount'] as num?)?.toDouble() ?? 0,
+                sourceAccount:
+                    args['source'] as String? ?? 'Mobile Money',
+                errorMessage: args['message'] as String? ??
+                    'Deposit could not be completed.',
+              );
+            } else {
+              page = const DepositErrorScreen();
+            }
+            break;
+          case '/withdrawal_error':
+            final args = settings.arguments;
+            if (args is Map) {
+              page = WithdrawalErrorScreen(
+                amount: (args['amount'] as num?)?.toDouble() ?? 0,
+                destinationAccount:
+                    args['destination'] as String? ?? 'Mobile Money',
+                errorMessage: args['message'] as String? ??
+                    'Withdrawal could not be completed.',
+              );
+            } else {
+              page = const WithdrawalErrorScreen();
+            }
+            break;
           case '/budget':
-            page = const BudgetScreen();
+            // Deep links open Home on the Budget tab.
+            page = const HomeScreen();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              AppState().openBudgetTab();
+            });
             break;
           case '/notifications':
             page = const NotificationScreen();
@@ -98,23 +155,17 @@ class KwanpaSusuApp extends StatelessWidget {
           case '/deposit_success':
             page = const DepositSuccessScreen();
             break;
-          case '/deposit_error':
-            page = const DepositErrorScreen();
-            break;
-          case '/withdrawal_error':
-            page = const WithdrawalErrorScreen();
-            break;
           case '/personal_info':
             page = const PersonalInfoScreen();
+            break;
+          case '/verify_ghana_card':
+            page = const VerifyGhanaCardScreen();
             break;
           case '/payment_methods':
             page = const PaymentMethodsScreen();
             break;
           case '/security':
             page = const SecurityScreen();
-            break;
-          case '/goal_achieved':
-            page = const GoalAchievedScreen();
             break;
           case '/transactions':
             page = const TransactionHistoryScreen();

@@ -6,10 +6,13 @@ import '../state/app_state.dart';
 
 class NumberVerificationScreen extends StatefulWidget {
   final String phoneNumber;
+  /// `signup` | `reset_pin`
+  final String purpose;
 
   const NumberVerificationScreen({
     super.key,
     this.phoneNumber = '+233 54 123 4567',
+    this.purpose = 'signup',
   });
 
   @override
@@ -67,6 +70,10 @@ class _NumberVerificationScreenState extends State<NumberVerificationScreen> {
 
   void _verifyOtp() {
     if (_otpCode.length == 6) {
+      if (widget.purpose == 'reset_pin') {
+        Navigator.of(context).pushReplacementNamed('/set_new_pin');
+        return;
+      }
       AppState().signIn();
       Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
     } else {
