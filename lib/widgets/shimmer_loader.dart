@@ -45,8 +45,6 @@ class _ShimmerLoaderState extends State<ShimmerLoader>
         return ShaderMask(
           blendMode: BlendMode.srcATop,
           shaderCallback: (bounds) {
-            final double width = bounds.width;
-
             return LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
@@ -56,7 +54,8 @@ class _ShimmerLoaderState extends State<ShimmerLoader>
                 Color(0xFFEBEBF4),
               ],
               stops: const [0.1, 0.5, 0.9],
-              transform: _SlidingGradientTransform(slidePercent: _shimmerController.value),
+              transform: _SlidingGradientTransform(
+                  slidePercent: _shimmerController.value),
             ).createShader(bounds);
           },
           child: widget.child,

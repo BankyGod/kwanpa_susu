@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'screens/budget_screen.dart';
 import 'screens/get_started_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/number_verification_screen.dart';
@@ -124,7 +123,7 @@ class KwanpaSusuApp extends StatelessWidget {
             }
             break;
           case '/budget':
-            // Deep links open Home on the Budget tab.
+            // Prefer switching tab on existing Home instead of stacking another.
             page = const HomeScreen();
             WidgetsBinding.instance.addPostFrameCallback((_) {
               AppState().openBudgetTab();

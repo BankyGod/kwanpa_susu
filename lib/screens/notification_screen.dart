@@ -74,12 +74,16 @@ class NotificationScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                           onTap: () {
                             state.markNotificationRead(n.id);
-                            if (n.route != null) {
-                              Navigator.of(context).pushNamed(
-                                n.route!,
-                                arguments: n.routeArgs,
-                              );
+                            if (n.route == null) return;
+                            if (n.route == '/budget') {
+                              Navigator.of(context).pop();
+                              state.openBudgetTab();
+                              return;
                             }
+                            Navigator.of(context).pushNamed(
+                              n.route!,
+                              arguments: n.routeArgs,
+                            );
                           },
                           child: Container(
                             padding: const EdgeInsets.all(14),

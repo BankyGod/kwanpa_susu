@@ -223,7 +223,7 @@ class _DepositErrorScreenState extends State<DepositErrorScreen>
                         height: 54,
                         child: ElevatedButton(
                           onPressed: () {
-                            Navigator.of(context).pop(); // Re-try deposit
+                            Navigator.of(context).pushReplacementNamed('/deposit');
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.vibrantGreen,

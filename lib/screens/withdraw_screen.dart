@@ -37,13 +37,17 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   }
 
   PaymentMethod? get _selectedMethod {
+    final methods = AppState().paymentMethods;
+    if (methods.isEmpty) return null;
     final id = _selectedMethodId;
-    if (id == null) return null;
-    try {
-      return AppState().paymentMethods.firstWhere((m) => m.id == id);
-    } catch (_) {
-      return null;
+    if (id != null) {
+      for (final m in methods) {
+        if (m.id == id) return m;
+      }
     }
+    final primary = AppState().primaryPaymentMethod;
+    _selectedMethodId = primary?.id ?? methods.first.id;
+    return primary ?? methods.first;
   }
 
   Future<bool> _confirmTwoFactorIfNeeded() async {

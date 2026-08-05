@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../state/app_state.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/shimmer_loader.dart';
+import '../widgets/kyc_gate.dart';
 
 class GroupDetailScreen extends StatefulWidget {
   final String? groupId;
@@ -57,6 +58,12 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   }
 
   Future<void> _confirmContribute(SusuGroup group) async {
+    final allowed = await ensureKycVerified(
+      context,
+      actionLabel: 'contribute to Group Susu',
+    );
+    if (!allowed || !mounted) return;
+
     if (group.youHavePaidThisRound) {
       _toast(group.contributeBlockReason, ok: false);
       return;
@@ -132,6 +139,12 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   }
 
   Future<void> _confirmPayout(SusuGroup group) async {
+    final allowed = await ensureKycVerified(
+      context,
+      actionLabel: 'claim a Group Susu payout',
+    );
+    if (!allowed || !mounted) return;
+
     if (!group.canClaimPayout) {
       _toast(group.payoutBlockReason, ok: false);
       return;

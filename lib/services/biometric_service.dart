@@ -21,12 +21,7 @@ class BiometricCapability {
 
   /// Android face unlock is often Class 2 (weak) — still usable.
   bool get isAvailable =>
-      hasFace ||
-      hasFingerprint ||
-      hasWeak ||
-      hasStrong ||
-      (deviceSupported && canCheck) ||
-      deviceSupported;
+      hasFace || hasFingerprint || hasWeak || hasStrong || (deviceSupported && canCheck);
 
   bool get hasBothFaceAndFingerprint => hasFace && hasFingerprint;
 

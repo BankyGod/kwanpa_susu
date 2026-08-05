@@ -223,7 +223,7 @@ class _WithdrawalErrorScreenState extends State<WithdrawalErrorScreen>
                         height: 54,
                         child: ElevatedButton(
                           onPressed: () {
-                            Navigator.of(context).pop(); // Re-try withdrawal
+                            Navigator.of(context).pushReplacementNamed('/withdraw');
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.vibrantGreen,

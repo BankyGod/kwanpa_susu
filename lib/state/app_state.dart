@@ -405,7 +405,17 @@ class AppNotification {
         'bgColor': _colorToInt(bgColor),
         'isUnread': isUnread,
         'route': route,
-        'routeArgs': routeArgs is String ? routeArgs : null,
+        'routeArgs': () {
+          final args = routeArgs;
+          if (args == null) return null;
+          if (args is String || args is num || args is bool) return args;
+          if (args is Map) {
+            return Map<String, dynamic>.from(
+              args.map((k, v) => MapEntry(k.toString(), v)),
+            );
+          }
+          return args.toString();
+        }(),
       };
 
   factory AppNotification.fromJson(Map<String, dynamic> json) =>
@@ -2392,6 +2402,11 @@ class AppState extends ChangeNotifier {
         color: const Color(0xFFC9A900),
         bgColor: const Color(0xFFFFF9C4),
         route: '/goal_achieved',
+        routeArgs: {
+          'title': goal.title,
+          'amount': goal.targetAmount,
+          'date': 'Today',
+        },
       );
     }
 
