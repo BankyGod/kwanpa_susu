@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
 
 class SetNewPinScreen extends StatefulWidget {
   const SetNewPinScreen({super.key});
@@ -69,6 +70,8 @@ class _SetNewPinScreenState extends State<SetNewPinScreen> {
       );
       return;
     }
+
+    AppState().setPin(_newPin);
 
     showDialog(
       context: context,

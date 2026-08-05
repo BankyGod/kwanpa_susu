@@ -9,6 +9,7 @@ import 'screens/sign_in_screen.dart';
 import 'screens/sign_up_screen.dart';
 import 'theme/app_theme.dart';
 import 'utils/page_transitions.dart';
+import 'state/app_state.dart';
 
 import 'screens/notification_screen.dart';
 import 'screens/withdraw_screen.dart';
@@ -24,8 +25,12 @@ import 'screens/personal_info_screen.dart';
 import 'screens/payment_methods_screen.dart';
 import 'screens/security_screen.dart';
 import 'screens/goal_achieved_screen.dart';
+import 'screens/transaction_history_screen.dart';
+import 'screens/groups_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppState().init();
   runApp(const KwanpaSusuApp());
 }
 
@@ -83,7 +88,8 @@ class KwanpaSusuApp extends StatelessWidget {
             page = const GoalSuccessScreen();
             break;
           case '/goal_detail':
-            page = const GoalDetailScreen();
+            final goalId = settings.arguments as String?;
+            page = GoalDetailScreen(goalId: goalId);
             break;
           case '/withdrawal_success':
             page = const WithdrawalSuccessScreen();
@@ -108,6 +114,12 @@ class KwanpaSusuApp extends StatelessWidget {
             break;
           case '/goal_achieved':
             page = const GoalAchievedScreen();
+            break;
+          case '/transactions':
+            page = const TransactionHistoryScreen();
+            break;
+          case '/groups':
+            page = const GroupsScreen();
             break;
           default:
             page = const GetStartedScreen();

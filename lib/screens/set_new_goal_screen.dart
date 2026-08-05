@@ -88,6 +88,9 @@ class _SetNewGoalScreenState extends State<SetNewGoalScreen> {
       targetAmount: targetAmount,
       frequency: _selectedFrequency,
       lockDate: dateStr,
+      isAutoSave: _autoContributions,
+      autoSaveAmount: 25.00,
+      isLocked: true,
     );
 
     // Navigate to GoalSuccessScreen matching Figma 4:1847

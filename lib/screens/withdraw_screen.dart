@@ -14,7 +14,6 @@ class WithdrawScreen extends StatefulWidget {
 class _WithdrawScreenState extends State<WithdrawScreen> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _accountController = TextEditingController();
-  final double _availableBalance = 4200.00;
 
   @override
   void dispose() {
@@ -26,6 +25,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   void _processWithdrawal() {
     final amountText = _amountController.text.trim();
     final accountText = _accountController.text.trim();
+    final available = AppState().totalBalance;
 
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -42,23 +42,33 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       return;
     }
 
-    if (amount > _availableBalance) {
+    if (amount > available) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Amount exceeds available balance')),
       );
       return;
     }
 
-    final String dest = accountText.isNotEmpty ? accountText : 'MTN MoMo (024 *** 4587)';
-    AppState().withdraw(amount, dest);
+    final primary = AppState().primaryPaymentMethod;
+    final String dest = accountText.isNotEmpty
+        ? accountText
+        : primary != null
+            ? '${primary.name} (${primary.maskedNumber})'
+            : 'MTN MoMo';
 
-    // Success dialog
-    // Push WithdrawalSuccessScreen matching Figma 4:1699
+    final ok = AppState().withdraw(amount, dest);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppState().lastError ?? 'Withdrawal failed')),
+      );
+      return;
+    }
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => WithdrawalSuccessScreen(
           amount: amount,
-          destinationAccount: accountText.isNotEmpty ? accountText : 'MTN MoMo (024 *** 4587)',
+          destinationAccount: dest,
           transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
           dateTimeStr: 'Today, ${TimeOfDay.now().format(context)}',
         ),
@@ -148,7 +158,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                                 ),
                               ),
                               Text(
-                                _availableBalance.toStringAsFixed(2),
+                                AppState().totalBalance.toStringAsFixed(2),
                                 style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,

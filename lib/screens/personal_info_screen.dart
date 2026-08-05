@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -18,8 +19,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   @override
   void initState() {
     super.initState();
-    _fullNameController = TextEditingController(text: 'Kwame Mensah');
-    _phoneController = TextEditingController(text: '+233 54 123 4567');
+    final state = AppState();
+    _fullNameController = TextEditingController(text: state.fullName);
+    _phoneController = TextEditingController(text: state.phone);
     _emailController = TextEditingController(text: 'kwame.mensah@gmail.com');
     _ghanaCardController = TextEditingController(text: 'GHA-729482941-8');
     _dobController = TextEditingController(text: '14 / 08 / 1994');
@@ -36,6 +38,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   }
 
   void _saveChanges() {
+    AppState().updateProfile(
+      name: _fullNameController.text,
+      phoneNumber: _phoneController.text,
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Personal Information updated successfully!'),

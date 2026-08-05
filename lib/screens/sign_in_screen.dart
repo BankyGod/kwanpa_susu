@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -45,6 +46,18 @@ class _SignInScreenState extends State<SignInScreen> {
         return;
       }
 
+      if (!AppState().verifyPin(_pinCode)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Incorrect PIN. Try again.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      AppState().signIn();
       Navigator.of(context).pushReplacementNamed('/home');
     }
   }

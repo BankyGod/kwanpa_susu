@@ -61,18 +61,27 @@ class _DepositScreenState extends State<DepositScreen> {
       return;
     }
 
-    // Update interactive in-memory demo state
-    AppState().deposit(amount, _selectedMethod);
+    final ok = AppState().deposit(amount, _selectedMethod);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppState().lastError ?? 'Deposit failed')),
+      );
+      return;
+    }
 
-    // Push DepositSuccessScreen matching Figma 4:1761
+    final primary = AppState().primaryPaymentMethod;
+    final source = primary != null
+        ? '$_selectedMethod (${primary.maskedNumber})'
+        : _selectedMethod;
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => DepositSuccessScreen(
           amount: amount,
-          sourceAccount: '$_selectedMethod (024 *** 4587)',
+          sourceAccount: source,
           transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
           dateTimeStr: 'Today, ${TimeOfDay.now().format(context)}',
-          newBalance: 4200.00 + amount,
+          newBalance: AppState().totalBalance,
         ),
       ),
     );

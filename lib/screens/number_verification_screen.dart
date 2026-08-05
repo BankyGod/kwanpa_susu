@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../state/app_state.dart';
 
 class NumberVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -66,6 +67,7 @@ class _NumberVerificationScreenState extends State<NumberVerificationScreen> {
 
   void _verifyOtp() {
     if (_otpCode.length == 6) {
+      AppState().signIn();
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
